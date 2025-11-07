@@ -38,6 +38,15 @@ Now, we can fine-tune a LLM with FedSA-LoRA:
 python federatedscope/main.py --cfg federatedscope/glue/yamls/fedsa-lora.yaml
 ```
 
+To use Llama-3-8B, login huggingface first:
+```shell
+huggingface-cli login
+```
+Then:
+```shell
+python federatedscope/main.py --cfg federatedscope/llm/yamls/fedsa-lora.yaml
+```
+
 ## Acknowledgement
 
 We would like to thank the authors for releasing the public repository: [FederatedScope-LLM](https://github.com/alibaba/FederatedScope/tree/llm).
