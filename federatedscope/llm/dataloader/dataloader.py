@@ -301,7 +301,7 @@ def load_llm_dataset(config=None, **kwargs):
                 'https://raw.githubusercontent.com/openai/'
                 'grade-school-math/2909d34ef28520753df82a2234c357259d254aa8/'
                 'grade_school_math/data/test.jsonl', config.data.root)
-            os.rename(os.path.join(config.data.root, 'test.jsonl'), fp)
+            os.rename(os.path.join(config.data.root, 'test.jsonl'), fp_test)
         list_data_dict_test = load_jsonl(fp_test, 
                                          instruction='question', 
                                          output='answer')
