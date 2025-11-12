@@ -1,4 +1,4 @@
-seed: 123
+seed: 11
 use_gpu: True
 device: 0
 early_stop:
@@ -12,7 +12,7 @@ federate:
   share_local_model: True
   online_aggr: False
 personalization: 
-  local_param: ['lora_B', 'classifier']
+  local_param: ['classifier']
 data:
   root: data/
   type: 'mnli@glue'
@@ -43,3 +43,7 @@ eval:
   metrics: ['accuracy']
   count_flops: False
   best_res_update_round_wise_key: 'val_accuracy'
+lora:
+  method: "shareA"  # option: shareA, shareB, swap
+  rotate: False
+  initialshare: 'A'

@@ -44,3 +44,7 @@ eval:
   metrics: ['acc']
   best_res_update_round_wise_key: val_acc
   count_flops: False
+lora:
+  method: "shareA"  # option: shareA, shareB, swap
+  rotate: False
+  initialshare: 'A'
