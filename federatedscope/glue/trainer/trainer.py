@@ -14,7 +14,8 @@ from federatedscope.core.monitors.monitor import Monitor
 from federatedscope.core.auxiliaries.optimizer_builder import get_optimizer
 from federatedscope.core.auxiliaries.scheduler_builder import get_scheduler
 from federatedscope.glue.model.adapter_builder import AdapterModel
-from datasets import load_metric
+from evaluate import load
+# from datasets import load_metric
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -155,7 +156,7 @@ class GLUETrainer(GeneralTorchTrainer):
                 f'{ctx.cur_split}_avg_loss': avg_loss
         }
         # added by me, for GLUE
-        glue_metric = load_metric('glue', ctx.cfg.data.type.split('@')[0], trust_remote_code=True)
+        glue_metric = load('glue', ctx.cfg.data.type.split('@')[0], trust_remote_code=True)
         eval_metric = glue_metric.compute(predictions=ctx.ys_pred, references=ctx.ys_true)
         for k, v in eval_metric.items():
             eval_results[f'{ctx.cur_split}_{k}'] = v
