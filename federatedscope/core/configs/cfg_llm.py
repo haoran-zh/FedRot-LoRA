@@ -81,6 +81,11 @@ def extend_llm_cfg(cfg):
     cfg.llm.offsite_tuning.emu_align.train.optimizer.type = 'SGD'
     cfg.llm.offsite_tuning.emu_align.train.optimizer.lr = 0.01
 
+    cfg.lora = CN()
+    cfg.lora.method = ''
+    cfg.lora.rotate = False
+    cfg.lora.initialshare = ''
+
 
 def assert_llm_cfg(cfg):
     if cfg.llm.offsite_tuning.emu_align.use:
