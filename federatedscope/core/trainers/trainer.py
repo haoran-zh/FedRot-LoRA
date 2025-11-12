@@ -366,9 +366,9 @@ class Trainer(BaseTrainer):
                     f"\tthe hooks_in_eval is:\n\
             t{format_log_hooks(self.hooks_in_eval)}")
 
-    def _param_filter(self, state_dict, filter_keywords=None):
+    def _param_filter(self, state_dict, filter_keywords=None):  # we need this
         """
-        model parameter filter when transmit between local and gloabl,
+        model parameter filter when transmit between local and global,
         which is useful in personalization.
         e.g., setting cfg.personalization.local_param= ['bn', 'norms']
         indicates the implementation of

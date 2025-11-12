@@ -437,7 +437,9 @@ class Server(BaseServer):
         """
         Perform federated aggregation and update the global model
         """
+        # this is the place to edit, if need to change the aggregation process
         train_msg_buffer = self.msg_buffer['train'][self.state]
+        # for mulit-model FL, the system may carry multiple models. for us, model_num=1
         for model_idx in range(self.model_num):
             model = self.models[model_idx]
             aggregator = self.aggregators[model_idx]

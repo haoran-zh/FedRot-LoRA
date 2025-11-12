@@ -1,0 +1,129 @@
+import torch
+
+
+def rotation_align_optimization(initial_model_ref: torch.Tensor,
+                                align_matrix: str,
+                                updated_A: torch.Tensor,
+                                updated_B: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+    """
+    Performs rotation alignment for a *single pair* of LoRA parameters using PyTorch.
+
+    This function solves the Orthogonal Procrustes problem to find the
+    optimal rotation matrix (R) that aligns a client's updated parameters
+    to a shared reference (the initial_model_ref). It then applies this
+    rotation to both A and B.
+
+    Args:
+        initial_model_ref (torch.Tensor): The reference matrix (on the same device as updated_A/B).
+        align_matrix (str): Either 'A' or 'B'. Specifies which matrix to use
+            for the alignment calculation.
+        updated_A (torch.Tensor): The client's locally updated A matrix (r x d).
+        updated_B (torch.Tensor): The client's locally updated B matrix (d x r).
+
+    Returns:
+        tuple[torch.Tensor, torch.Tensor]: A tuple containing:
+            - rotated_A (torch.Tensor): The new A matrix (R.T @ A).
+            - rotated_B (torch.Tensor): The new B matrix (B @ R).
+    """
+
+    # Get original dtype and device to ensure consistency
+    # We'll use the dtypes of A and B directly for casting.
+    a_dtype = updated_A.dtype
+    b_dtype = updated_B.dtype
+    original_device = updated_A.device
+
+    # 1. Find the optimal rotation R by solving the Orthogonal Procrustes problem.
+    # We want to find an r x r rotation matrix R.
+    # All computations will stay on the device of the input tensors (e.g., 'cuda:0').
+
+    with torch.no_grad():  # Ensure no gradients are computed during alignment
+        if align_matrix == 'A':
+            # M = updated_A @ initial_model_ref.T
+            # Ensure consistent dtype for matmul, upcasting to float32 if dtypes differ
+            M = torch.matmul(updated_A.to(torch.float32), initial_model_ref.T.to(torch.float32))
+        elif align_matrix == 'B':
+            # M = updated_B.T @ initial_model_ref
+            # Ensure consistent dtype for matmul, upcasting to float32 if dtypes differ
+            M = torch.matmul(updated_B.T.to(torch.float32), initial_model_ref.to(torch.float32))
+        else:
+            raise ValueError("align_matrix must be 'A' or 'B'")
+
+        # 2. Compute SVD of the r x r correlation matrix M using torch.linalg.svd
+        try:
+            # --- FIX for 'Half' precision error ---
+            # SVD on CUDA does not support float16/bfloat16. M is already float32.
+            U, S, Vh = torch.linalg.svd(M, full_matrices=False)
+        except torch.linalg.LinAlgError:
+            print(
+                f"Warning: SVD computation failed for matrix of shape {M.shape} on device {M.device}. Using identity matrix.")
+            # Fallback to a simple identity matrix on the same device
+            R_32 = torch.eye(M.shape[0], device=original_device, dtype=torch.float32)
+        else:
+            # The optimal rotation matrix R = U @ Vh
+            # R is computed in float32.
+            R_32 = torch.matmul(U, Vh)
+
+        # 3. Apply the rotation to both A and B
+        # B' = B @ R
+        # A' = R.T @ A
+
+        # --- FIX for dtype mismatch ---
+        # Explicitly cast R (which is float32) to the *specific* dtype
+        # of the matrix it is being multiplied with.
+
+        # Cast R to B's dtype for the first multiplication
+        rotated_B = torch.matmul(updated_B, R_32.to(b_dtype))
+
+        # Cast R.T to A's dtype for the second multiplication
+        rotated_A = torch.matmul(R_32.T.to(a_dtype), updated_A)
+
+    return rotated_A, rotated_B
+
+
+def rotation_alignment(initial_model_ref: dict,
+                       align: str,
+                       updated_A: dict,
+                       updated_B: dict) -> (dict, dict):
+    """
+    Wrapper function to align an entire LoRA model (represented as dictionaries).
+
+    This iterates through layers and calls the torch-based optimization.
+
+    Args:
+        initial_model_ref (dict): The reference model weights (e.g., A_ref_dict or B_ref_dict).
+        align (str): Either 'A' or 'B'.
+        updated_A (dict): Client's updated A matrices.
+        updated_B (dict): Client's updated B matrices.
+
+    Returns:
+        tuple[dict, dict]: A tuple containing:
+            - rotatedA (dict): The new, aligned A matrices.
+            - rotatedB (dict): The new, aligned B matrices.
+    """
+    rotatedA = {}
+    rotatedB = {}
+    layer_keys_A = list(updated_A.keys())
+    # Create corresponding B keys (e.g., 'layer1.lora_A' -> 'layer1.lora_B')
+    layer_keys_B = [key.replace('.lora_A', '.lora_B') for key in layer_keys_A]  # ensure order
+
+    if align == 'A':
+        ref_keys = layer_keys_A
+    elif align == 'B':
+        ref_keys = layer_keys_B
+    else:
+        raise ValueError("align must be 'A' or 'B'")
+
+    for key_a, key_b, key_ref in zip(layer_keys_A, layer_keys_B, ref_keys):
+        # Check if the keys exist before processing
+        if key_a not in updated_A or key_b not in updated_B or key_ref not in initial_model_ref:
+            print(f"Warning: Skipping layer due to missing keys. Looked for {key_a}, {key_b}, {key_ref}")
+            continue
+
+        A = updated_A[key_a]
+        B = updated_B[key_b]
+        model_ref = initial_model_ref[key_ref]
+
+        # Call the pure PyTorch function
+        rotatedA[key_a], rotatedB[key_b] = rotation_align_optimization(model_ref, align, A, B)
+
+    return rotatedA, rotatedB

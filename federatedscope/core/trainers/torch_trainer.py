@@ -31,9 +31,11 @@ class GeneralTorchTrainer(Trainer):
         if self.cfg.federate.process_num > 1 or \
                 self.cfg.federate.share_local_model or \
                 self.cfg.llm.deepspeed.use:
-            return self._param_filter(self.ctx.model.state_dict())
+            # return self._param_filter(self.ctx.model.state_dict())
+            return self.ctx.model.state_dict()
         else:
-            return self._param_filter(self.ctx.model.cpu().state_dict())
+            # return self._param_filter(self.ctx.model.cpu().state_dict())
+            return self.ctx.model.cpu().state_dict()
 
     def setup_data(self, ctx):
         """

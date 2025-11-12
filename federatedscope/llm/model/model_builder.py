@@ -87,7 +87,7 @@ def get_llm(config):
 
     args = config.llm.adapter.args[0] if len(
         config.llm.adapter.args[0]) > 0 else {}
-    model = AdapterModel(model, use_adapter=config.llm.adapter.use, **args)
+    model = AdapterModel(model, use_adapter=config.llm.adapter.use, **args)  # here we define the adapter (LoRA)
     
     # for FFA-LoRA
     if config.federate.freeze_A:
