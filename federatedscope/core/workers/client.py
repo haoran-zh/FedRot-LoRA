@@ -12,6 +12,7 @@ from federatedscope.core.secret_sharing import AdditiveSecretSharing
 from federatedscope.core.auxiliaries.utils import merge_dict_of_results, \
     calculate_time_cost, add_prefix_to_path, get_ds_rank
 from federatedscope.core.workers.base_client import BaseClient
+from federatedscope.rotation_alignment_tools import rotation_align_optimization, rotation_alignment
 
 logger = logging.getLogger(__name__)
 if get_ds_rank() == 0:
@@ -187,6 +188,12 @@ class Client(BaseClient):
                 'port': self.comm_manager.port
             }
 
+        if self._cfg.lora.initialshare is 'A':
+            self.swap_offset = 0
+        else:
+            self.swap_offset = 1
+
+
     def _gen_timestamp(self, init_timestamp, instance_number):
         if init_timestamp is None:
             return None
@@ -323,6 +330,7 @@ class Client(BaseClient):
                     content[k] = v.to(self.device)
             self.trainer.update(content,
                                 strict=self._cfg.federate.share_local_model)
+            # this only merges the model weights
             self.state = round
             skip_train_isolated_or_global_mode = \
                 self.early_stopper.early_stopped and \
@@ -345,7 +353,49 @@ class Client(BaseClient):
                         f"early stopped. "
                         f"The next FL update may result in negative effect")
                     self._monitor.local_converged()
-                sample_size, model_para_all, results = self.trainer.train()
+
+
+
+                sample_size, model_para_all, results = self.trainer.train()  # here we do the training
+
+
+                self.trainer.cfg.personalization.local_param.append('lora_A')
+                model_para_B = self.trainer._param_filter(model_para_all)
+                self.trainer.cfg.personalization.local_param.remove('lora_A')
+
+                self.trainer.cfg.personalization.local_param.append('lora_B')
+                model_para_A = self.trainer._param_filter(model_para_all)
+                self.trainer.cfg.personalization.local_param.remove('lora_B')
+
+                if self._cfg.lora.rotate is True and self.state > 0:  # the first round cannot rotate
+                    align_matrix = 'A' if self.state % 2 != self.swap_offset else 'B'
+                    model_para_A, model_para_B = rotation_alignment(initial_model_ref=content, align=align_matrix,
+                                                         updated_A=model_para_A, updated_B=model_para_B)
+                    self.trainer.update(content,
+                                        strict=self._cfg.federate.share_local_model)
+
+                if self._cfg.lora.method == "swap":
+                    if self.state % 2 == self.swap_offset:
+                        model_para_all = model_para_A
+                    else:
+                        model_para_all = model_para_B
+                elif self._cfg.lora.method == "shareA":
+                    model_para_all = model_para_A
+                elif self._cfg.lora.method == "shareB":
+                    model_para_all = model_para_B
+                else:
+                    print('warning: share both B and A!')
+
+                # model_para_all = rotation_alignment(initial_model=content, updated_model=model_para_all)
+
+
+
+                # print(model_para_all.keys()) we have filtered out lora_A, but training happens for both
+                # model_para_all include one lora matrix only (for aggregation). we want to rotate it
+                # we still need personalization.local_param: ['lora_B']
+                # we need to figure out how to change this across rounds
+                # model_para_all = rotation_alignment(initial_model=content, updated_model=model_para_all)
+
                 if self._cfg.federate.share_local_model and not \
                         self._cfg.federate.online_aggr:
                     model_para_all = copy.deepcopy(model_para_all)
