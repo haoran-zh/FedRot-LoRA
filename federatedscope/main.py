@@ -58,7 +58,8 @@ if __name__ == '__main__':
         new_data[1] = data[init_cfg.federate.client_idx_for_local_train]
         data = new_data
     
-    init_cfg.freeze()
+    init_cfg.freeze()  # freeze can save the configurations
+    init_cfg.defrost()
     runner = get_runner(data=data,
                         server_class=get_server_cls(init_cfg),
                         client_class=get_client_cls(init_cfg),
