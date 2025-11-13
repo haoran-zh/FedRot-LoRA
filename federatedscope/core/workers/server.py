@@ -933,6 +933,7 @@ class Server(BaseServer):
         To conduct evaluation. When ``cfg.federate.make_global_eval=True``, \
         a global evaluation is conducted by the server.
         """
+        # we should use cfg.federate.make_global_eval=True
 
         if self._cfg.federate.make_global_eval:
             # By default, the evaluation is conducted one-by-one for all
