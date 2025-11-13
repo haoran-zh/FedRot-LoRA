@@ -371,8 +371,17 @@ class Client(BaseClient):
                     align_matrix = 'A' if self.state % 2 != self.swap_offset else 'B'
                     model_para_A, model_para_B = rotation_alignment(initial_model_ref=content, align=align_matrix,
                                                          updated_A=model_para_A, updated_B=model_para_B)
-                    self.trainer.update(content,
+
+                    self.trainer.cfg.personalization.local_param.append('lora_A')
+                    self.trainer.update(model_para_B,
                                         strict=self._cfg.federate.share_local_model)
+                    self.trainer.cfg.personalization.local_param.remove('lora_A')
+
+                    self.trainer.cfg.personalization.local_param.append('lora_B')
+                    self.trainer.update(model_para_A,
+                                        strict=self._cfg.federate.share_local_model)
+                    self.trainer.cfg.personalization.local_param.remove('lora_B')
+
 
                 if self._cfg.lora.method == "swap":
                     if self.state % 2 == self.swap_offset:
