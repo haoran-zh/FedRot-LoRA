@@ -398,7 +398,7 @@ class StandaloneRunner(BaseRunner):
         if self.is_run_online:
             self._run_simulation_online()
         else:
-            self._run_simulation()
+            self._run_simulation()  # we do this
         # TODO: avoid using private attr
         self.server._monitor.finish_fed_runner(fl_mode=self.mode)
         return self.server.best_results
