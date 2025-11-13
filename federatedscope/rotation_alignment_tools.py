@@ -1,5 +1,5 @@
 import torch
-
+from collections import OrderedDict
 
 def rotation_align_optimization(initial_model_ref: torch.Tensor,
                                 align_matrix: str,
@@ -100,8 +100,8 @@ def rotation_alignment(initial_model_ref: dict,
             - rotatedA (dict): The new, aligned A matrices.
             - rotatedB (dict): The new, aligned B matrices.
     """
-    rotatedA = {}
-    rotatedB = {}
+    rotatedA = OrderedDict()
+    rotatedB = OrderedDict()
     layer_keys_A = list(updated_A.keys())
     # Create corresponding B keys (e.g., 'layer1.lora_A' -> 'layer1.lora_B')
     layer_keys_B = [key.replace('.lora_A', '.lora_B') for key in layer_keys_A]  # ensure order

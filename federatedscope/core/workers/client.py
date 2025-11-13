@@ -354,6 +354,17 @@ class Client(BaseClient):
                         f"The next FL update may result in negative effect")
                     self._monitor.local_converged()
 
+                if self._cfg.lora.rolora is True:
+                    if self.state % 2 == self.swap_offset:  # will share A to server, freeze B
+                        remove_lora = 'lora_B'
+                    else: # will share B to server, freeze A
+                        remove_lora = 'lora_A'
+                    for name, param in self.trainer.ctx.model.named_parameters():
+                        if remove_lora in name:
+                            param.requires_grad = False
+                        else:
+                            param.requires_grad = True
+
 
 
                 sample_size, model_para_all, results = self.trainer.train()  # here we do the training
@@ -382,6 +393,8 @@ class Client(BaseClient):
                                         strict=self._cfg.federate.share_local_model)
                     self.trainer.cfg.personalization.local_param.remove('lora_B')
 
+                    model_para_all = self.trainer.get_model_para()
+
 
                 if self._cfg.lora.method == "swap":
                     if self.state % 2 == self.swap_offset:
@@ -392,8 +405,10 @@ class Client(BaseClient):
                     model_para_all = model_para_A
                 elif self._cfg.lora.method == "shareB":
                     model_para_all = model_para_B
+                elif self._cfg.lora.method == "shareAB":
+                    pass
                 else:
-                    print('warning: share both B and A!')
+                    raise ValueError(f"Unknown lora method {self._cfg.lora.method}")
 
                 # model_para_all = rotation_alignment(initial_model=content, updated_model=model_para_all)
 
