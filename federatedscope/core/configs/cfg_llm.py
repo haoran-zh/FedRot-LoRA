@@ -85,6 +85,7 @@ def extend_llm_cfg(cfg):
     cfg.lora.method = ''
     cfg.lora.rotate = False
     cfg.lora.initialshare = ''
+    cfg.lora.rolora = False
 
 
 def assert_llm_cfg(cfg):
