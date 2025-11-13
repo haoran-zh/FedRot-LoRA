@@ -61,12 +61,14 @@ class ClientsAvgAggregator(Aggregator):
         """
         Calculates the weighted average of models.
         """
+        # We use this aggregation
         training_set_size = 0
         for i in range(len(models)):
             sample_size, _ = models[i]
             training_set_size += sample_size
 
         sample_size, avg_model = models[0]
+        # print(f"this round we aggregate with {list(avg_model.keys())[0]}")
         for key in avg_model:
             for i in range(len(models)):
                 local_sample_size, local_model = models[i]
