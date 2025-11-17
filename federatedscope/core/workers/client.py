@@ -370,41 +370,39 @@ class Client(BaseClient):
                 sample_size, model_para_all, results = self.trainer.train()  # here we do the training
 
 
-                self.trainer.cfg.personalization.local_param.append('lora_A')
-                model_para_B = self.trainer._param_filter(model_para_all)
-                self.trainer.cfg.personalization.local_param.remove('lora_A')
-
-                self.trainer.cfg.personalization.local_param.append('lora_B')
-                model_para_A = self.trainer._param_filter(model_para_all)
-                self.trainer.cfg.personalization.local_param.remove('lora_B')
+                model_para_B_only = self.trainer._param_filter(model_para_all, filter_keywords=['lora_A', 'classifier'])
+                model_para_A_only = self.trainer._param_filter(model_para_all, filter_keywords=['lora_B', 'classifier'])
 
                 if self._cfg.lora.rotate is True and self.state > 0:  # the first round cannot rotate
                     align_matrix = 'A' if self.state % 2 != self.swap_offset else 'B'
-                    model_para_A, model_para_B = rotation_alignment(initial_model_ref=content, align=align_matrix,
-                                                         updated_A=model_para_A, updated_B=model_para_B)
+                    model_para_A_only, model_para_B_only = rotation_alignment(initial_model_ref=content, align=align_matrix,
+                                                         updated_A=model_para_A_only, updated_B=model_para_B_only)
 
                     self.trainer.cfg.personalization.local_param.append('lora_A')
-                    self.trainer.update(model_para_B,
+                    self.trainer.update(model_para_B_only,
                                         strict=self._cfg.federate.share_local_model)
                     self.trainer.cfg.personalization.local_param.remove('lora_A')
 
                     self.trainer.cfg.personalization.local_param.append('lora_B')
-                    self.trainer.update(model_para_A,
+                    self.trainer.update(model_para_A_only,
                                         strict=self._cfg.federate.share_local_model)
                     self.trainer.cfg.personalization.local_param.remove('lora_B')
 
                     model_para_all = self.trainer.get_model_para()
 
-
                 if self._cfg.lora.method == "swap":
                     if self.state % 2 == self.swap_offset:
-                        model_para_all = model_para_A
+                        model_para_A_share = self.trainer._param_filter(model_para_all, filter_keywords=['lora_B'])
+                        model_para_all = model_para_A_share
                     else:
-                        model_para_all = model_para_B
+                        model_para_B_share = self.trainer._param_filter(model_para_all, filter_keywords=['lora_A'])
+                        model_para_all = model_para_B_share
                 elif self._cfg.lora.method == "shareA":
-                    model_para_all = model_para_A
+                    model_para_A_share = self.trainer._param_filter(model_para_all, filter_keywords=['lora_B'])
+                    model_para_all = model_para_A_share
                 elif self._cfg.lora.method == "shareB":
-                    model_para_all = model_para_B
+                    model_para_B_share = self.trainer._param_filter(model_para_all, filter_keywords=['lora_A'])
+                    model_para_all = model_para_B_share
                 elif self._cfg.lora.method == "shareAB":
                     pass
                 else:
