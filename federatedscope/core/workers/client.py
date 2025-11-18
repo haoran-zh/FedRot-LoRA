@@ -188,7 +188,7 @@ class Client(BaseClient):
                 'port': self.comm_manager.port
             }
 
-        if self._cfg.lora.initialshare is 'A':
+        if self._cfg.lora.initialshare == 'A':
             self.swap_offset = 0
         else:
             self.swap_offset = 1
