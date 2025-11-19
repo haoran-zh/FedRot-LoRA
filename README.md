@@ -1,13 +1,8 @@
-# FedSA-LoRA
+# FedLoRA2
 
-The implementation of [Selective Aggregation for Low-Rank Adaptation in Federated Learning](https://openreview.net/forum?id=iX3uESGdsO) [ICLR 2025]. \
-[Pengxin Guo](https://pengxin-guo.github.io), [Shuang Zeng](https://scholar.google.com/citations?user=yTP1oqkAAAAJ&hl=en), Yanran Wang, Huijie Fan, Feifei Wang, and [Liangqiong Qu](https://liangqiong.github.io).
+The implementation of **F**ederated **Lo**w-**R**ank **A**daption via **R**otation **A**lignment (FedLoRA2). 
 
-<img src="./figs/FedSA-LoRA.png" alt="framework" width="700" /> 
-
-##### Figure 1. The illustration of (a) LoRA, (b) FFA-LoRA, and (c) FedSA-LoRA. In LoRA, both $A$ and $B$ matrices are trainable and shared with the server for aggregation. In FFA-LoRA, only $B$ matrices are trainable and shared with the server for aggregation, while $A$ matrices are fixed after initialization. In FedSA-LoRA, both $A$ and $B$ matrices are trainable, but only $A$ matrices are shared with the server for aggregation while $B$ matrices are kept locally.
-
-
+The code is based on https://github.com/Pengxin-Guo/FedSA-LoRA
 ## Installation
 
 Our code is based on Python version 3.10 and PyTorch version 2.1.0. 
