@@ -175,6 +175,7 @@ def run_simulation_logic():
 def plot_trajectory_with_contours(trajectory_results, start_A, start_B):
     """
     Plots trajectories over a contour map of the Global Loss function.
+    Uses a LINEAR scale capped at the starting loss for maximum clarity.
     """
     fig, ax = plt.subplots(figsize=(12, 10))
 
@@ -190,30 +191,42 @@ def plot_trajectory_with_contours(trajectory_results, start_A, start_B):
     min_B, max_B = min(all_B) - margin, max(all_B) + margin
 
     # 2. Generate Meshgrid for Contours
-    # Create a grid of A and B values
-    A_grid = np.linspace(min_A, max_A, 200)
-    B_grid = np.linspace(min_B, max_B, 200)
+    A_grid = np.linspace(min_A, max_A, 300)  # Increased resolution
+    B_grid = np.linspace(min_B, max_B, 300)
     AA, BB = np.meshgrid(A_grid, B_grid)
 
-    # 3. Calculate Global Loss at every point on the grid
+    # 3. Calculate Global Loss at every point
     # Loss = (B*A - Global_Optimal)^2
     Z = (AA * BB - GLOBAL_OPTIMAL) ** 2
 
-    # 4. Plot Contours
-    # We use LogNorm because loss functions usually drop very quickly near the valley.
-    # This makes the gradients visible.
-    contour = ax.contourf(AA, BB, Z, levels=50, cmap='GnBu', norm=LogNorm(), alpha=0.6)
+    # --- CHANGE: Linear Scale Logic ---
+    # Calculate the loss at the initialization point.
+    # We use this to set the "ceiling" (vmax) of our color chart.
+    # This ensures the color gradient is focused on the path from Start -> Optimal.
+    initial_loss = (start_A * start_B - GLOBAL_OPTIMAL) ** 2
+
+    # Cap the max color at 1.2x the initial loss.
+    # Any region with HIGHER loss than where we started will be the darkest blue.
+    z_max = initial_loss * 1.8
+
+    # Create linear levels from 0 to z_max
+    linear_levels = np.linspace(0, z_max, 10)
+
+    # 4. Plot Contours (Linear)
+    # 'extend="max"' ensures that values above z_max are colored with the darkest color
+    # rather than being left white.
+    contour = ax.contourf(AA, BB, Z, levels=linear_levels, cmap='GnBu', alpha=0.6, extend='max')
+
     cbar = fig.colorbar(contour, ax=ax)
-    cbar.set_label('Global Loss $(B \cdot A - \Delta W_{opt})^2$', rotation=270, labelpad=20)
+    cbar.set_label('Global Loss (Linear Scale)', rotation=270, labelpad=20)
 
     # 5. Plot Optimal Hyperbola (The "Valley" floor)
-    # B = Optimal / A
-    A_line = np.linspace(min_A, max_A, 400)
-    # Remove values near 0 to avoid asymptote connection lines
+    A_line = np.linspace(min_A, max_A, 600)
+    # Remove values near 0 to avoid asymptote artifacts
     A_line = A_line[np.abs(A_line) > 0.05]
     B_line = GLOBAL_OPTIMAL / A_line
 
-    # Filter B_line to stay within plot bounds for cleaner legend
+    # Filter B_line to stay within plot bounds
     mask = (B_line >= min_B) & (B_line <= max_B)
     ax.plot(A_line[mask], B_line[mask], 'r--', linewidth=2, label='Global Optimal Manifold')
 
@@ -227,7 +240,7 @@ def plot_trajectory_with_contours(trajectory_results, start_A, start_B):
         ax.plot(A_vals, B_vals, marker=marker, linestyle='-', linewidth=2,
                 markersize=6, alpha=0.9, label=label)
 
-        # Mark the end point specifically
+        # Mark the end point
         ax.scatter(A_vals[-1], B_vals[-1], s=100, edgecolors='white', zorder=10)
 
     # 7. Mark Start Point
@@ -236,8 +249,7 @@ def plot_trajectory_with_contours(trajectory_results, start_A, start_B):
     # Formatting
     ax.set_xlabel("Parameter A", fontsize=14)
     ax.set_ylabel("Parameter B", fontsize=14)
-    ax.set_title(f"Optimization Trajectory on Global Loss Landscape\n(Target $A \\cdot B = {GLOBAL_OPTIMAL:.2f}$)",
-                 fontsize=16)
+    ax.set_title(f"Optimization Trajectory (Linear Scale)\n(Target $A \\cdot B = {GLOBAL_OPTIMAL:.2f}$)", fontsize=16)
     ax.set_xlim(min_A, max_A)
     ax.set_ylim(min_B, max_B)
     ax.axhline(0, color='k', linewidth=0.5, alpha=0.5)
@@ -246,10 +258,9 @@ def plot_trajectory_with_contours(trajectory_results, start_A, start_B):
     ax.grid(True, linestyle=':', alpha=0.6)
 
     plt.tight_layout()
-    plt.savefig("fedlora_trajectory_contour.png", dpi=300)
-    print("Plot saved to fedlora_trajectory_contour.png")
+    plt.savefig("fedlora_trajectory_contour_linear.png", dpi=300)
+    print("Plot saved to fedlora_trajectory_contour_linear.png")
     plt.show()
-
 
 if __name__ == "__main__":
     # Run simulation
