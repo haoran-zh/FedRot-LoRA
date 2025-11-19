@@ -1,5 +1,13 @@
 #!/bin/bash
-python federatedscope/main.py --cfg federatedscope/glue/yamls/global_rolora.yaml
-python federatedscope/main.py --cfg federatedscope/glue/yamls/global_fedlora2_shareAB.yaml
-python federatedscope/main.py --cfg federatedscope/glue/yamls/global_fedlora2_shareAB_wo_rotation.yaml
-python federatedscope/main.py --cfg federatedscope/glue/yamls/global_fedlora2_swap.yaml
+# use device 0
+BASE_YAML="federatedscope/glue/yamls/g_localstep20_fedlora2_shareAB.yaml"
+
+# --- Experiment 1: Iterate over Random Seeds ---
+echo "Running experiments with different seeds..."
+for SEED in 11 12 13
+do
+    echo "Starting run with seed: $SEED"
+    python federatedscope/main.py \
+        --cfg $BASE_YAML \
+        seed $SEED
+done
