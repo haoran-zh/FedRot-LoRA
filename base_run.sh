@@ -1,5 +1,18 @@
 #!/bin/bash
 
+
+# 1. Safety Trap
+cleanup() {
+    echo ">>> CTRL+C detected. Killing background Python jobs..."
+    kill $(jobs -p) 2>/dev/null
+    wait
+    echo ">>> Clean stop."
+    exit 1
+}
+trap cleanup SIGINT SIGTERM
+
+
+
 # --- Configuration ---
 GPUS=(2)                # Your GPU IDs
 JOBS_PER_GPU=2              # How many to stack per GPU
@@ -13,7 +26,7 @@ BASE_YAMLS=(
     "federatedscope/glue/yamls/base_worotation.yaml"
 )
 SEEDS=(12)
-TOTAL_TRAIN=5000
+TOTAL_TRAIN=10000
 LOCAL_STEPS=(10 20)
 DATA='rte@glue'
 LR_VALUES=(5e-4 1e-3 2e-3 5e-3 1e-2 2e-2 5e-2 1e-1)
@@ -39,7 +52,7 @@ do
                 gpu_idx=$((batch_position / JOBS_PER_GPU))
                 CURRENT_GPU=${GPUS[$gpu_idx]}
 
-                echo "Running (Job #$counter): GPU=$CURRENT_GPU | LR=$LR"
+                echo "Running (Job #$counter): GPU=$CURRENT_GPU | LR=$LR | LS=$LS | Seed=$SEED | Rounds=$ROUNDS"
 
                 LOG_BUFFER="./log_buffer.log"
 
@@ -74,3 +87,6 @@ done
 
 wait
 echo "All experiments completed."
+
+# empty log buffer
+truncate -s 0 ./log_buffer.log
