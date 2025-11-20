@@ -1,46 +1,76 @@
 #!/bin/bash
+
+# --- Configuration ---
+GPUS=(2)                # Your GPU IDs
+JOBS_PER_GPU=2              # How many to stack per GPU
+NUM_GPUS=${#GPUS[@]}
+# Total concurrent jobs = 3 GPUs * 2 jobs = 6
+BATCH_SIZE=$((NUM_GPUS * JOBS_PER_GPU))
+
 BASE_YAMLS=(
     "federatedscope/glue/yamls/base_fedlora2.yaml"
     "federatedscope/glue/yamls/base_rolora.yaml"
-        "federatedscope/glue/yamls/base_worotation.yaml"
+    "federatedscope/glue/yamls/base_worotation.yaml"
 )
-SEEDS=(12)  # let's only do 1 random seed for quick testing
-DEVICE_ID=2
+SEEDS=(12)
 TOTAL_TRAIN=5000
 LOCAL_STEPS=(10 20)
 DATA='rte@glue'
 LR_VALUES=(5e-4 1e-3 2e-3 5e-3 1e-2 2e-2 5e-2 1e-1)
 
+counter=0
+
 for BASE_YAML in "${BASE_YAMLS[@]}"
 do
     echo "--- Base Config: $BASE_YAML ---"
-
-    # Loop over local steps
     for LS in "${LOCAL_STEPS[@]}"
     do
-        # Calculate TOTAL_ROUNDS based on current LOCAL_STEPS
-        # This uses integer arithmetic
         ROUNDS=$((TOTAL_TRAIN / LS))
-        echo "Calculated total rounds: $ROUNDS for local steps: $LS"
-
-        # Loop over learning rate values
         for LR in "${LR_VALUES[@]}"
         do
-            # Loop over seeds
             for SEED in "${SEEDS[@]}"
             do
-                echo "Running: BASE=$BASE_YAML, LS=$LS, LR=$LR, SEED=$SEED, ROUNDS=$ROUNDS"
+                # --- LOGIC TO MAP JOB TO GPU ---
+                # 1. Find where we are in the current batch (0 to 5)
+                batch_position=$((counter % BATCH_SIZE))
 
-                # Execute the Python script with all arguments
+                # 2. Integer division to assign GPU.
+                # Positions 0,1 -> GPU index 0. Positions 2,3 -> GPU index 1, etc.
+                gpu_idx=$((batch_position / JOBS_PER_GPU))
+                CURRENT_GPU=${GPUS[$gpu_idx]}
+
+                echo "Running (Job #$counter): GPU=$CURRENT_GPU | LR=$LR"
+
+                LOG_BUFFER="./log_buffer.log"
+
+                # Execute in background
                 python federatedscope/main.py \
                     --cfg $BASE_YAML \
-                    device $DEVICE_ID \
+                    device $CURRENT_GPU \
                     seed $SEED \
                     federate.total_round_num $ROUNDS \
                     data.type $DATA \
                     train.local_update_steps $LS \
-                    train.optimizer.lr $LR
+                    train.optimizer.lr $LR > "$LOG_BUFFER" 2>&1 &
+
+                # --- SAFETY STAGGER ---
+                # Sleep 60 seconds before starting the next one to prevent
+                # simultaneous initialization memory spikes.
+                sleep 60
+
+                ((counter++))
+
+                # --- BATCH WAIT ---
+                # If we have filled all slots (counter is a multiple of 6), wait.
+                if (( counter % BATCH_SIZE == 0 )); then
+                    echo ">>> Batch full ($BATCH_SIZE jobs running). Waiting for completion..."
+                    wait
+                    echo ">>> Batch finished. Starting next batch."
+                fi
             done
         done
     done
 done
+
+wait
+echo "All experiments completed."
