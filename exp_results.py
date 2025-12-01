@@ -80,7 +80,10 @@ def check_algorithm(config):
     lora_rotate = config['lora']['rotate']
     lora_rolora = config['lora']['rolora']
     method = config['lora']['method']  # shareAB, shareA, shareB, swap
-    if lora_rotate:
+    freeze_A = config['federate']['freeze_A']
+    if freeze_A:
+        algorithm_name = 'FFA-LoRA'
+    elif lora_rotate:
         algorithm_name = 'FedLoRA2'
     elif lora_rolora:
         algorithm_name = 'RoLoRA'
@@ -206,10 +209,13 @@ def main():
         avg_eval["FedLoRA2_wo_Rotation"]["avg_acc"]) > 0 else 'N/A'
     rolora_max_acc = max(avg_eval["RoLoRA"]["avg_acc"]) if "RoLoRA" in avg_eval and len(
         avg_eval["RoLoRA"]["avg_acc"]) > 0 else 'N/A'
+    ffalora_max_acc = max(avg_eval["FFA-LoRA"]["avg_acc"]) if "FFA-LoRA" in avg_eval and len(
+        avg_eval["FFA-LoRA"]["avg_acc"]) > 0 else 'N/A'
 
     print(f'FedLoRA2 Max Acc: {fedlora2_max_acc}')
     print(f'FedLoRAwoRotation Max Acc: {fedlora_wo_rot_max_acc}')
     print(f'RoLoRA Max Acc: {rolora_max_acc}')
+    print(f'FFA-LoRA Max Acc: {ffalora_max_acc}')
     print('---------------------------------------------------------')
 
 

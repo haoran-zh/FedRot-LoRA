@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# some rolora code may collapse because gpu vram overflows, need to check after finish
 
 # 1. Safety Trap
 cleanup() {
@@ -14,22 +15,24 @@ trap cleanup SIGINT SIGTERM
 
 
 # --- Configuration ---
-GPUS=(2)                # Your GPU IDs
-JOBS_PER_GPU=2              # How many to stack per GPU
+GPUS=(0)                # Your GPU IDs
+JOBS_PER_GPU=1             # How many to stack per GPU
 NUM_GPUS=${#GPUS[@]}
 # Total concurrent jobs = 3 GPUs * 2 jobs = 6
 BATCH_SIZE=$((NUM_GPUS * JOBS_PER_GPU))
 
 BASE_YAMLS=(
-    "federatedscope/glue/yamls/base_fedlora2.yaml"
     "federatedscope/glue/yamls/base_rolora.yaml"
-    "federatedscope/glue/yamls/base_worotation.yaml"
+    "federatedscope/glue/yamls/base_fedlora2.yaml"
 )
-SEEDS=(12)
+#    "federatedscope/glue/yamls/base_fedlora2.yaml"
+#    "federatedscope/glue/yamls/base_worotation.yaml"
+SEEDS=(11 12 13)
 TOTAL_TRAIN=10000
-LOCAL_STEPS=(10 20)
-DATA='rte@glue'
-LR_VALUES=(5e-4 1e-3 2e-3 5e-3 1e-2 2e-2 5e-2 1e-1)
+LOCAL_STEPS=(30 40 50)
+DATA='mnli@glue'
+LR_VALUES=(5e-3 2e-2)
+# LR_VALUES=(5e-4 1e-3 2e-3 5e-3 1e-2 2e-2 5e-2 1e-1)
 
 counter=0
 
