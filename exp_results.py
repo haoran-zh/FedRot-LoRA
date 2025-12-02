@@ -28,6 +28,12 @@ def read_log_file(subexp_path):
         tuple: (np.ndarray, np.ndarray) for (Accuracy, Loss) for all rounds,
                or (None, None) on error/no data.
     """
+    # check if system_metrics.log exists (if not, return None, None)
+    system_metrics_path = os.path.join(subexp_path, 'system_metrics.log')
+    if not os.path.exists(system_metrics_path):
+        print(f"Error: System metrics log file not found at {system_metrics_path}")
+        return None, None
+
     filepath = os.path.join(subexp_path, 'eval_results.log')
     if not os.path.exists(filepath):
         print(f"Error: Log file not found at {filepath}")
@@ -81,10 +87,19 @@ def check_algorithm(config):
     lora_rolora = config['lora']['rolora']
     method = config['lora']['method']  # shareAB, shareA, shareB, swap
     freeze_A = config['federate']['freeze_A']
+    # check if config['lora']['rotate_lambda'] exists. If not, set to 1.5
+    if 'rotate_lambda' in config['lora']:
+        rotate_lambda = config['lora']['rotate_lambda']
+    else:
+        rotate_lambda = 1.5
+
     if freeze_A:
         algorithm_name = 'FFA-LoRA'
     elif lora_rotate:
-        algorithm_name = 'FedLoRA2'
+        if rotate_lambda == 1.5: # default version
+            algorithm_name = f'FedLoRA2'
+        else:
+            algorithm_name = f'FedLoRA2_lambda{rotate_lambda}'
     elif lora_rolora:
         algorithm_name = 'RoLoRA'
     elif (method == 'shareAB') and not lora_rotate:
@@ -171,7 +186,7 @@ def main():
 
         # Skip if log reading failed or returned no data
         if acc is None or loss is None or acc.size == 0:
-            print(f"Skipping {sub_exp} due to missing or empty log data.")
+            print(f"Skipping {sub_exp} due to missing or unfinished log data.")
             continue
 
         # check if the algorithm_name exists in eval_dict
@@ -195,29 +210,40 @@ def main():
         loss_array = np.array(eval_dict[algorithm_name]['loss'])
 
         # Calculate mean along the runs axis (axis=0)
-        avg_acc = np.mean(acc_array, axis=0)
-        avg_loss = np.mean(loss_array, axis=0)
-        avg_eval[algorithm_name] = {'avg_acc': avg_acc, 'avg_loss': avg_loss}
+        try:
+            avg_acc_on_seed = np.mean(acc_array, axis=0)  # use to plot avg acc curve
+            max_acc = np.max(acc_array, axis=1)
+            avg_max_acc = np.mean(max_acc)
+            avg_loss = np.mean(loss_array, axis=0)
+            avg_eval[algorithm_name] = {'avg_acc': avg_max_acc, 'avg_loss': avg_loss, "avg_acc_curve": avg_acc_on_seed}
+        except:
+            print('Error in averaging results for ', algorithm_name)
+            avg_eval[algorithm_name] = {'avg_acc': 0.0, 'avg_loss': 0.0}
+
 
     print(f'\n--- Results Summary for {dataset_name} ({lr}, {lstep}) ---')
 
-    # Check if the algorithms exist in avg_eval before printing
-    fedlora2_max_acc = max(avg_eval["FedLoRA2"]["avg_acc"]) if "FedLoRA2" in avg_eval and len(
-        avg_eval["FedLoRA2"]["avg_acc"]) > 0 else 'N/A'
-    fedlora_wo_rot_max_acc = max(
-        avg_eval["FedLoRA2_wo_Rotation"]["avg_acc"]) if "FedLoRA2_wo_Rotation" in avg_eval and len(
-        avg_eval["FedLoRA2_wo_Rotation"]["avg_acc"]) > 0 else 'N/A'
-    rolora_max_acc = max(avg_eval["RoLoRA"]["avg_acc"]) if "RoLoRA" in avg_eval and len(
-        avg_eval["RoLoRA"]["avg_acc"]) > 0 else 'N/A'
-    ffalora_max_acc = max(avg_eval["FFA-LoRA"]["avg_acc"]) if "FFA-LoRA" in avg_eval and len(
-        avg_eval["FFA-LoRA"]["avg_acc"]) > 0 else 'N/A'
 
-    print(f'FedLoRA2 Max Acc: {fedlora2_max_acc}')
-    print(f'FedLoRAwoRotation Max Acc: {fedlora_wo_rot_max_acc}')
-    print(f'RoLoRA Max Acc: {rolora_max_acc}')
-    print(f'FFA-LoRA Max Acc: {ffalora_max_acc}')
+    for algorithm_name in sorted(avg_eval.keys()):
+        print(f'{algorithm_name} Max Acc: {avg_eval[algorithm_name]["avg_acc"]}')
+
     print('---------------------------------------------------------')
 
+    # plot the avg acc curve for each algorithm
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(10, 6))
+
+    algorithm_list = sorted(avg_eval.keys())
+
+    for algorithm_name in algorithm_list:
+        plt.plot(avg_eval[algorithm_name]['avg_acc_curve'], label=algorithm_name)
+    plt.title(f'Average Accuracy Curve on {dataset_name} ({lr}, {lstep}) confused')
+    plt.xlabel('Rounds')
+    plt.ylabel('Accuracy')
+    plt.legend(loc='upper left')
+    plt.grid()
+    plt_path = os.path.join(exp_dir, f'avg_acc_curve_{lr}_{lstep}.pdf')
+    plt.savefig(plt_path)
 
 # 5. Entry point
 if __name__ == "__main__":
