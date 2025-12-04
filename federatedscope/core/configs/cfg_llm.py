@@ -86,6 +86,22 @@ def extend_llm_cfg(cfg):
     cfg.lora.rotate = False
     cfg.lora.initialshare = ''
     cfg.lora.rolora = False
+    cfg.lora.use_lora = True
+    cfg.lora.rotate_lambda = 1.5
+    cfg.lora.rotate_reg = False
+    cfg.lora.normalize = False
+    cfg.lora.warm_up = False
+    cfg.lora.warm_up_rounds = 10
+    cfg.lora.warm_up_lr = 1e-2
+    cfg.lora.temp = 0.0
+
+    cfg.FedSteer = CN()
+    cfg.FedSteer.use = False
+    cfg.FedSteer.stale = False
+    cfg.FedSteer.beta = -1.0
+    cfg.FedSteer.method = ''
+
+
 
 
 def assert_llm_cfg(cfg):

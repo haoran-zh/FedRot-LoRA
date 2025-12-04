@@ -87,11 +87,26 @@ def check_algorithm(config):
     lora_rolora = config['lora']['rolora']
     method = config['lora']['method']  # shareAB, shareA, shareB, swap
     freeze_A = config['federate']['freeze_A']
+    seed = config['seed']
     # check if config['lora']['rotate_lambda'] exists. If not, set to 1.5
     if 'rotate_lambda' in config['lora']:
         rotate_lambda = config['lora']['rotate_lambda']
     else:
         rotate_lambda = 1.5
+    if 'rotate_reg' in config['lora']:
+        rotate_reg = config['lora']['rotate_reg']
+    else:
+        rotate_reg = False
+
+    if 'warm_up' in config['lora']:
+        warm_up = config['lora']['warm_up']
+    else:
+        warm_up = False
+
+    if 'normalize' in config['lora']:
+        normalize = config['lora']['normalize']
+    else:
+        normalize = False
 
     if freeze_A:
         algorithm_name = 'FFA-LoRA'
@@ -99,7 +114,16 @@ def check_algorithm(config):
         if rotate_lambda == 1.5: # default version
             algorithm_name = f'FedLoRA2'
         else:
-            algorithm_name = f'FedLoRA2_lambda{rotate_lambda}'
+            if rotate_reg:
+                algorithm_name = f'FedLoRA2_lambda{rotate_lambda}_reg'
+            else:
+                algorithm_name = f'FedLoRA2_lambda{rotate_lambda}_soft'
+            if warm_up:
+                algorithm_name += f'_warmup_r{config["lora"]["warm_up_rounds"]}_lr{config["lora"]["warm_up_lr"]}'
+
+            if normalize:
+                algorithm_name += f'_norm'
+
     elif lora_rolora:
         algorithm_name = 'RoLoRA'
     elif (method == 'shareAB') and not lora_rotate:
@@ -109,7 +133,7 @@ def check_algorithm(config):
         algorithm_name = 'Unknown Algorithm'
         # print('Unknown Algorithm!')
         # exit()
-    return algorithm_name
+    return algorithm_name, seed
 
 
 def main():
@@ -177,7 +201,12 @@ def main():
 
         # read yaml config
         config = check_config(sub_exp_path)
-        algorithm_name = check_algorithm(config)
+        algorithm_name, seed = check_algorithm(config)
+
+        # seed filter: only consider seed in [11, 12, 13]
+        if seed not in [11, 12, 13]:
+            print(f"Skipping {sub_exp} with seed {seed}.")
+            continue
 
         if algorithm_name == 'Unknown Algorithm':
             continue

@@ -48,24 +48,24 @@ check_gpu_availability() {
 
 
 # --- Configuration ---
-GPUS=(2)                # Your GPU IDs
+GPUS=(0 1 2)                # Your GPU IDs
 JOBS_PER_GPU=1             # How many to stack per GPU
 NUM_GPUS=${#GPUS[@]}
 # Total concurrent jobs = 3 GPUs * 2 jobs = 6
 BATCH_SIZE=$((NUM_GPUS * JOBS_PER_GPU))
 
 BASE_YAMLS=(
-#    "federatedscope/glue/yamls/base_rolora.yaml"
+    "federatedscope/glue/yamls/base_rolora.yaml"
     "federatedscope/glue/yamls/base_fedlora2.yaml"
-#    "federatedscope/glue/yamls/base_worotation.yaml"
-#    "federatedscope/glue/yamls/base_FFAlora.yaml"
+    "federatedscope/glue/yamls/base_worotation.yaml"  # FedIT
+    "federatedscope/glue/yamls/base_FFAlora.yaml"
 )
 #    "federatedscope/glue/yamls/base_fedlora2.yaml"
 #    "federatedscope/glue/yamls/base_worotation.yaml"
 SEEDS=(11 12 13)
 TOTAL_TRAIN=10000
 LOCAL_STEPS=(20)
-DATA='rte@glue'
+DATA='rte@glue'  # 'mnli@glue'
 # 'lr0.005' 'lr0.02'
 LR_VALUES=(0.001 0.005 0.02)
 ROTATE_LAMBDA=(1.0 0.5)
@@ -109,13 +109,11 @@ do
                       seed $SEED \
                       lora.rotate_lambda $LAMBDA\
                       lora.rotate_reg $ROTATE_REG \
-                      lora.warm_up True \
-                      lora.warm_up_rounds 40 \
-                      lora.warm_up_lr 2e-2 \
+                      lora.normalize True \
                       federate.total_round_num $ROUNDS \
                       data.type $DATA \
                       train.local_update_steps $LS \
-                      train.optimizer.lr $LR > "$LOG_BUFFER" 2>&1 &
+                      train.optimizer.lr $LR #> "$LOG_BUFFER" 2>&1 &
 
                   # --- SAFETY STAGGER ---
                   # Sleep 60 seconds before starting the next one to prevent
