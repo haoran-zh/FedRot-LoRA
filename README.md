@@ -10,10 +10,12 @@ You can install all the dependencies with the following command:
 ```shell
 conda create -n fedsa-lora python=3.10
 conda activate fedsa-lora
-conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=12.1 -c pytorch -c nvidia
+# this command may have problems, use the below one. conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=12.1 -c pytorch -c nvidia
+pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
 pip install -e .[llm]
 ```
 
+(
 The following command may bring the error "undefined symbol: iJIT_IsProfilingActive"
 ```shell
 conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=12.1 -c pytorch -c nvidia
@@ -23,7 +25,7 @@ Replace it with
 ```shell
 pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
 ```
-
+)
 
 ## Training
 
