@@ -1,5 +1,12 @@
 import torch
+import logging
 from collections import OrderedDict
+
+from federatedscope.core.auxiliaries.utils import get_ds_rank
+
+logger = logging.getLogger(__name__)
+if get_ds_rank() == 0:
+    logger.setLevel(logging.INFO)
 
 def rotation_align_optimization(initial_model_ref: torch.Tensor,
                                 align_matrix: str,
@@ -330,6 +337,12 @@ def rotation_alignment_soft(initial_model_ref: dict,
     else:
         raise ValueError("align must be 'A' or 'B'")
 
+    total_norm_A = 0.0
+    total_norm_B = 0.0
+    total_norm_Aprime= 0.0
+    total_norm_Bprime= 0.0
+    count = 0
+
     for key_a, key_b, key_ref in zip(layer_keys_A, layer_keys_B, ref_keys):
         # Check if the keys exist before processing
         if key_a not in updated_A or key_b not in updated_B or key_ref not in initial_model_ref:
@@ -340,8 +353,25 @@ def rotation_alignment_soft(initial_model_ref: dict,
         B = updated_B[key_b]
         model_ref = initial_model_ref[key_ref]
 
+        total_norm_A += torch.norm(A).item()
+        total_norm_B += torch.norm(B).item()
+        count += 1
+
         # Call the pure PyTorch function
         rotatedA[key_a], rotatedB[key_b] = rotation_align_optimization_soft(model_ref, align, A, B, rotation_lambda)
+
+        # compute norms after rotation
+        total_norm_Aprime += torch.norm(rotatedA[key_a]).item()
+        total_norm_Bprime += torch.norm(rotatedB[key_b]).item()
+
+    avg_norm_A = total_norm_A / count if count > 0 else 0.0
+    avg_norm_B = total_norm_B / count if count > 0 else 0.0
+    avg_norm_Aprime = total_norm_Aprime / count if count > 0 else 0.0
+    avg_norm_Bprime = total_norm_Bprime / count if count > 0 else 0.0
+    print(f'Average norm of updated A ,B before alignment: A {avg_norm_A}, B {avg_norm_B}')
+    print(f'Average norm of updated A, B after alignment: A {avg_norm_Aprime}, B {avg_norm_Bprime}')
+    logger.info(f'Average norm of updated A ,B before alignment: A {avg_norm_A}, B {avg_norm_B}')
+    logger.info(f'Average norm of updated A, B after alignment: A {avg_norm_Aprime}, B {avg_norm_Bprime}')
 
     return rotatedA, rotatedB
 
@@ -366,6 +396,12 @@ def rotation_alignment_regularized(initial_model_ref: dict,
     else:
         raise ValueError("align must be 'A' or 'B'")
 
+    total_norm_A = 0.0
+    total_norm_B = 0.0
+    total_norm_Aprime= 0.0
+    total_norm_Bprime= 0.0
+    count = 0
+
     for key_a, key_b, key_ref in zip(layer_keys_A, layer_keys_B, ref_keys):
         # Check if the keys exist before processing
         if key_a not in updated_A or key_b not in updated_B or key_ref not in initial_model_ref:
@@ -376,7 +412,24 @@ def rotation_alignment_regularized(initial_model_ref: dict,
         B = updated_B[key_b]
         model_ref = initial_model_ref[key_ref]
 
+        total_norm_A += torch.norm(A).item()
+        total_norm_B += torch.norm(B).item()
+        count += 1
+
         # Call the pure PyTorch function
         rotatedA[key_a], rotatedB[key_b] = rotation_align_optimization_regularized(model_ref, align, A, B, rotation_lambda)
+
+        # compute norms after rotation
+        total_norm_Aprime += torch.norm(rotatedA[key_a]).item()
+        total_norm_Bprime += torch.norm(rotatedB[key_b]).item()
+
+    avg_norm_A = total_norm_A / count if count > 0 else 0.0
+    avg_norm_B = total_norm_B / count if count > 0 else 0.0
+    avg_norm_Aprime = total_norm_Aprime / count if count > 0 else 0.0
+    avg_norm_Bprime = total_norm_Bprime / count if count > 0 else 0.0
+    print(f'Average norm of updated A ,B before alignment: A {avg_norm_A}, B {avg_norm_B}')
+    print(f'Average norm of updated A, B after alignment: A {avg_norm_Aprime}, B {avg_norm_Bprime}')
+    logger.info(f'Average norm of updated A ,B before alignment: A {avg_norm_A}, B {avg_norm_B}')
+    logger.info(f'Average norm of updated A, B after alignment: A {avg_norm_Aprime}, B {avg_norm_Bprime}')
 
     return rotatedA, rotatedB
