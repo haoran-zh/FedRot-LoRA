@@ -47,18 +47,20 @@ class Client:
                 grad_A = 2 * error * (B_old if train_B else self.B)
                 self.A -= lr * grad_A
 
-    def align_A_and_get(self, A_ref):
+    def align_A_and_get(self, A_ref, lam=1.0):
         """ Rotate such that A becomes A_ref, B scales inversely. """
         if abs(self.A) < EPSILON or abs(A_ref) < EPSILON:
             return self.A, self.B
         R = A_ref / self.A
+        R = (1 - lam) * 1 + lam * R
         return self.A * R, self.B / R
 
-    def align_B_and_get(self, B_ref):
+    def align_B_and_get(self, B_ref, lam=1.0):
         """ Rotate such that B becomes B_ref, A scales inversely. """
         if abs(self.B) < EPSILON or abs(B_ref) < EPSILON:
             return self.A, self.B
         R = B_ref / self.B
+        R = (1 - lam) * 1 + lam * R
         return self.A / R, self.B * R
 
 
@@ -159,15 +161,35 @@ def run_simulation_logic():
         for client in clients:
             client.train_local(LOCAL_STEPS, LR, train_A=True, train_B=True)
             if (round + 1) % 2 != 0:
-                a, b = client.align_A_and_get(A_ref)
+                a, b = client.align_A_and_get(A_ref, 1.0)
             else:
-                a, b = client.align_B_and_get(B_ref)
+                a, b = client.align_B_and_get(B_ref, 1.0)
             client_As.append(a)
             client_Bs.append(b)
         server.aggregate_AB(client_As, client_Bs)
         A_ref, B_ref = server.A, server.B
         traj.append((server.A, server.B))
     trajectory_results['FedLoRA2 (Rot)'] = traj
+    #
+    # === 5. FedLoRA2 (soft Rotation) ===
+    server, clients = init_sim_state()
+    traj = [(server.A, server.B)]
+    A_ref, B_ref = server.A, server.B
+    for round in range(NUM_ROUNDS):
+        client_As, client_Bs = [], []
+        server.broadcast_AB(clients)
+        for client in clients:
+            client.train_local(LOCAL_STEPS, LR, train_A=True, train_B=True)
+            if (round + 1) % 2 != 0:
+                a, b = client.align_A_and_get(A_ref, 0.5)
+            else:
+                a, b = client.align_B_and_get(B_ref, 0.5)
+            client_As.append(a)
+            client_Bs.append(b)
+        server.aggregate_AB(client_As, client_Bs)
+        A_ref, B_ref = server.A, server.B
+        traj.append((server.A, server.B))
+    trajectory_results['FedLoRA2 (soft,lambda=0.5)'] = traj
 
     return trajectory_results, SHARED_INITIAL_A, SHARED_INITIAL_B
 
