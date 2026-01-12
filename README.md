@@ -1,8 +1,14 @@
 # FedLoRA2
 
-The implementation of **F**ederated **Lo**w-**R**ank **A**daption via **R**otation **A**lignment (FedLoRA2). 
+## Implementation of FedRot-LoRA
 
-The code is based on https://github.com/Pengxin-Guo/FedSA-LoRA
+This implementation is built on top of the FedSA-LoRA codebase:  
+https://github.com/Pengxin-Guo/FedSA-LoRA
+
+The core FedRot-LoRA logic is implemented in the following files:
+- `federatedscope/core/workers/client.py`
+- `federatedscope/core/workers/server.py`
+
 ## Installation
 
 Our code is based on Python version 3.10 and PyTorch version 2.1.0. 
