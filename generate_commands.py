@@ -6,8 +6,8 @@ algos = {
     "FedLoRA2": {
         "yaml": "federatedscope/glue/yamls/base_fedlora2.yaml",
         # Added 0.0005 and 0.001 here so the logic applies to them
-        "lrs": [0.0005, 0.001, 0.005, 0.02],
-        "lambdas": [1.0, 0.5, 0.3, 0.1],
+        "lrs": [0.005, 0.02],
+        "lambdas": [0.5, 0.3, 0.1],
         "warmup_round": [100],
         # We removed 'warmup' list here because we will determine it by logic
     },
@@ -32,13 +32,15 @@ algos = {
 }
 
 seeds = [11, 12, 13]
-datasets = ['qnli@glue']
+datasets = ['mnli@glue']
 total_train_steps = 5000
 local_steps = [20]
 rotate_reg = "False"
 device_id = 0
 warmup_lr = 0.005 # Default warmup_lr
-ClientNum = 10
+ClientNum = 3
+r = 16
+lora_alpha = 32
 
 data_root = "$SCRATCH/data/"
 
@@ -73,6 +75,8 @@ for data in datasets:
                             'warmup_round': config['lora']['warm_up_rounds'],
                             'local_update_steps': config['train']['local_update_steps'],
                             'lambda': config['lora']['rotate_lambda'],
+                            'r': config['llm']['adapter']['args'][0]['r'],
+                            'lora_alpha': config['llm']['adapter']['args'][0]['lora_alpha'],
                             }]
                     else:
                         existing_exp[algorithm_name].append(
@@ -85,6 +89,8 @@ for data in datasets:
                             'warmup_round': config['lora']['warm_up_rounds'],
                             'local_update_steps': config['train']['local_update_steps'],
                             'lambda': config['lora']['rotate_lambda'],
+                            'r': config['llm']['adapter']['args'][0]['r'],
+                            'lora_alpha': config['llm']['adapter']['args'][0]['lora_alpha'],
                             }
                         )
 
@@ -93,6 +99,8 @@ commands = []
 
 per_exp_config = {}
 per_exp_config['client_num']=ClientNum
+per_exp_config['r']=r
+per_exp_config['lora_alpha']=lora_alpha
 for data in datasets:
     per_exp_config['data']=data
     for algo_name, settings in algos.items():
@@ -147,12 +155,13 @@ for data in datasets:
                                 f"data.type {data} "
                                 f"data.root {data_root} "
                                 f"train.local_update_steps {ls} "
-                                f"train.optimizer.lr {lr}"
+                                f"train.optimizer.lr {lr} "
+                                f"llm.adapter.args \"[{{'adapter_package':'peft','adapter_method':'lora','r':{r},'lora_alpha':{lora_alpha},'lora_dropout':0.05}}]\""
                             )
                             commands.append(cmd)
 
 # Write to file
-output_file = "experiments_rte.txt"
+output_file = "experiments_r16.txt"
 with open(output_file, "w") as f:
     for cmd in commands:
         f.write(cmd + "\n")
