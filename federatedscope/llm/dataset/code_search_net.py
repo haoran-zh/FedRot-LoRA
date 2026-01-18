@@ -92,18 +92,19 @@ def generate_eval_files(destination_dir='data'):
 
 
 def download_csn(destination_dir='data'):
-    if not os.path.exists(destination_dir):
-        os.makedirs(destination_dir)
+    destination_dir = os.path.abspath(destination_dir)
+    os.makedirs(destination_dir, exist_ok=True)
 
     for language in CSN_FILE_NUM_DICT.keys():
-        if os.path.exists(os.path.join(destination_dir, f'{language}.zip')):
-            continue
-        call([
-            'wget', 'https://huggingface.co/datasets'
-            '/code_search_net/resolve/main/data/{}.zip'.format(language), '-P',
-            destination_dir, '-O', '{}.zip'.format(language)
-        ])
-        call(['unzip', '{}.zip'.format(language)])
+        zip_path = os.path.join(destination_dir, f'{language}.zip')
+        url = f'https://huggingface.co/datasets/code_search_net/resolve/main/data/{language}.zip'
+
+        # Download zip into destination_dir
+        if not os.path.exists(zip_path):
+            call(['wget', url, '-O', zip_path])
+
+        # Unzip into destination_dir (not CWD)
+        call(['unzip', '-o', zip_path, '-d', destination_dir])
 
 
 if __name__ == '__main__':
