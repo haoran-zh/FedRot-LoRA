@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH -J FL_Experiment        # Job name
-#SBATCH -o logs/job.%A_%a.out   # Output file (%A=ArrayID, %a=Index)
-#SBATCH -e logs/job.%A_%a.err   # Error file
+#SBATCH -J llamaco2        # Job name
+#SBATCH -o $SCRATCH/logs/job.%A_%a.out   # Output file (%A=ArrayID, %a=Index)
+#SBATCH -e $SCRATCH/logs/job.%A_%a.err   # Error file
 #SBATCH -p gh                   # Partition: Grace Hopper (Production)
 #SBATCH -N 1                    # 1 Node per array task
 #SBATCH -n 1                    # 1 Task per node
-#SBATCH -t 20:00:00             # Time limit
-#SBATCH --array=0-3             # Create 4 jobs
+#SBATCH -t 0:30:00             # Time limit
+#SBATCH --array=0-7             # Create 8 jobs
 
 # --- Email Notification ---
 #SBATCH --mail-type=all
@@ -14,15 +14,14 @@
 
 # --- Configuration ---
 PROJECT_DIR="/work/11240/hz8556/vista/FedSA-LoRA"
-CMD_FILE="experiments.txt"
-MAX_PARALLEL=4                  # Max concurrent jobs per GPU
+CMD_FILE="experiments_llamacode.txt"
+MAX_PARALLEL=1                  # Max concurrent jobs per GPU
 
 # --- Environment Setup ---
 echo ">>> Setting up environment..."
 cd "$PROJECT_DIR" || { echo "Failed to cd to $PROJECT_DIR"; exit 1; }
 
-# FIX: Initialize conda properly before activating
-# (Adjust the path '/work/...' to where your miniconda/anaconda is actually installed if this fails)
+# Initialize conda
 source $WORK/miniconda3/etc/profile.d/conda.sh 2>/dev/null || source $HOME/miniconda3/etc/profile.d/conda.sh 2>/dev/null
 conda activate fedsa-lora
 
@@ -51,16 +50,20 @@ echo ">>> Processing lines $START_LINE to $END_LINE from $CMD_FILE"
 counter=0
 pids=()
 
-# FIX: Process Substitution (< <(...)) keeps variables alive outside the loop
 while read -r cmd; do
 
     echo "Starting: $cmd"
 
-    # FIX: Use 'eval' for safer execution
+    # 1. Execute the command in the background
     eval "$cmd" > "logs/exp_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}_${counter}.log" 2>&1 &
     pid=$!
     pids+=($pid)
     ((counter++))
+
+    # 2. SAFETY STAGGER (New Addition)
+    # Wait 15 seconds to let the GPU memory allocation settle before launching the next one.
+    echo ">>> Waiting 10s for initialization..."
+    sleep 60
 
     # --- Batching ---
     if (( counter % MAX_PARALLEL == 0 )); then
@@ -75,7 +78,6 @@ while read -r cmd; do
 done < <(sed -n "${START_LINE},${END_LINE}p" "$CMD_FILE")
 
 # --- Wait for Final Batch ---
-# Because we fixed the loop, ${pids[@]} is now visible here!
 if [ ${#pids[@]} -gt 0 ]; then
     echo ">>> Waiting for final ${#pids[@]} jobs..."
     for p in "${pids[@]}"; do
