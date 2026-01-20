@@ -166,14 +166,14 @@ class LLMTrainer(GeneralTorchTrainer):
         
         setattr(ctx, 'eval_metrics', eval_results)
                 
-        # TODO: make this as a hook function
-        # Move trainable part to `cpu`, which can save memory but cost time
-        if ctx.cfg.llm.adapter.mv_to_cpu:
-            for p in ctx.model.parameters():
-                if p.requires_grad:
-                    p.data = p.to('cpu')
-                    if p.grad is not None:
-                        p.grad.data = p.grad.to('cpu')
+        # # TODO: make this as a hook function
+        # # Move trainable part to `cpu`, which can save memory but cost time
+        # if ctx.cfg.llm.adapter.mv_to_cpu:
+        #     for p in ctx.model.parameters():
+        #         if p.requires_grad:
+        #             p.data = p.to('cpu')
+        #             if p.grad is not None:
+        #                 p.grad.data = p.grad.to('cpu')
 
     def _hook_on_batch_forward_flop_count(self, ctx):
         """
