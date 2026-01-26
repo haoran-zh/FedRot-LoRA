@@ -368,8 +368,75 @@ def rotation_alignment_soft(initial_model_ref: dict,
     avg_norm_B = total_norm_B / count if count > 0 else 0.0
     avg_norm_Aprime = total_norm_Aprime / count if count > 0 else 0.0
     avg_norm_Bprime = total_norm_Bprime / count if count > 0 else 0.0
-    print(f'Average norm of updated A ,B before alignment: A {avg_norm_A}, B {avg_norm_B}')
-    print(f'Average norm of updated A, B after alignment: A {avg_norm_Aprime}, B {avg_norm_Bprime}')
+    # print(f'Average norm of updated A ,B before alignment: A {avg_norm_A}, B {avg_norm_B}')
+    # print(f'Average norm of updated A, B after alignment: A {avg_norm_Aprime}, B {avg_norm_Bprime}')
+    logger.info(f'Average norm of updated A ,B before alignment: A {avg_norm_A}, B {avg_norm_B}')
+    logger.info(f'Average norm of updated A, B after alignment: A {avg_norm_Aprime}, B {avg_norm_Bprime}')
+
+    return rotatedA, rotatedB
+
+
+def rotation_alignment_soft_normalized(initial_model_ref: dict,
+                       align: str,
+                       updated_A: dict,
+                       updated_B: dict,
+                        rotation_lambda: float) -> (dict, dict):
+    # soft rotation alignment
+    rotatedA = OrderedDict()
+    rotatedB = OrderedDict()
+    layer_keys_A = list(updated_A.keys())
+    # Create corresponding B keys (e.g., 'layer1.lora_A' -> 'layer1.lora_B')
+    layer_keys_B = [key.replace('.lora_A', '.lora_B') for key in layer_keys_A]  # ensure order
+
+    if align == 'A':
+        ref_keys = layer_keys_A
+    elif align == 'B':
+        ref_keys = layer_keys_B
+    else:
+        raise ValueError("align must be 'A' or 'B'")
+
+    total_norm_A = 0.0
+    total_norm_B = 0.0
+    total_norm_Aprime= 0.0
+    total_norm_Bprime= 0.0
+    count = 0
+
+    for key_a, key_b, key_ref in zip(layer_keys_A, layer_keys_B, ref_keys):
+        # Check if the keys exist before processing
+        if key_a not in updated_A or key_b not in updated_B or key_ref not in initial_model_ref:
+            print(f"Warning: Skipping layer due to missing keys. Looked for {key_a}, {key_b}, {key_ref}")
+            continue
+
+        A = updated_A[key_a]
+        B = updated_B[key_b]
+        model_ref = initial_model_ref[key_ref]
+
+        total_norm_A += torch.norm(A).item()
+        total_norm_B += torch.norm(B).item()
+        count += 1
+
+        # normalized before rotation
+
+        A_normalized = A / torch.norm(A)
+        B_normalized = B / torch.norm(B)
+        model_ref_normalized = model_ref / torch.norm(model_ref)
+
+
+        # Call the pure PyTorch function
+        rotatedA[key_a], rotatedB[key_b] = rotation_align_optimization_soft(model_ref_normalized, align, A_normalized, B_normalized, rotation_lambda)
+
+        # recover original scale after rotation
+        rotatedA[key_a] = rotatedA[key_a] * torch.norm(A)
+        rotatedB[key_b] = rotatedB[key_b] * torch.norm(B)
+
+        # compute norms after rotation
+        total_norm_Aprime += torch.norm(rotatedA[key_a]).item()
+        total_norm_Bprime += torch.norm(rotatedB[key_b]).item()
+
+    avg_norm_A = total_norm_A / count if count > 0 else 0.0
+    avg_norm_B = total_norm_B / count if count > 0 else 0.0
+    avg_norm_Aprime = total_norm_Aprime / count if count > 0 else 0.0
+    avg_norm_Bprime = total_norm_Bprime / count if count > 0 else 0.0
     logger.info(f'Average norm of updated A ,B before alignment: A {avg_norm_A}, B {avg_norm_B}')
     logger.info(f'Average norm of updated A, B after alignment: A {avg_norm_Aprime}, B {avg_norm_Bprime}')
 
