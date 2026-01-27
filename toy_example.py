@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
 # --- Configuration ---
-NUM_ROUNDS = 30
+NUM_ROUNDS = 50
 LOCAL_STEPS = 30
 LR = 0.01
 CLIENT_OPTIMALS = [0.5, 1.0, 1.5]
@@ -106,6 +106,20 @@ def run_simulation_logic():
             client.set_AB(SHARED_INITIAL_A, SHARED_INITIAL_B)
         return server, clients
 
+    # === 3. FedLoRA2 (No Rotation) ===
+    server, clients = init_sim_state()
+    traj = [(server.A, server.B)]
+    for _ in range(NUM_ROUNDS):
+        client_As, client_Bs = [], []
+        server.broadcast_AB(clients)
+        for client in clients:
+            client.train_local(LOCAL_STEPS, LR, train_A=True, train_B=True)
+            client_As.append(client.A)
+            client_Bs.append(client.B)
+        server.aggregate_AB(client_As, client_Bs)
+        traj.append((server.A, server.B))
+    trajectory_results['Naive Aggregation (FedIT)'] = traj
+
     # === 1. FFA-LoRA ===
     server, clients = init_sim_state()
     traj = [(server.A, server.B)]
@@ -118,7 +132,7 @@ def run_simulation_logic():
             client_Bs.append(client.B)
         server.aggregate_B(client_Bs)
         traj.append((frozen_A, server.B))
-    trajectory_results['FFA-LoRA (Freeze A)'] = traj
+    trajectory_results['Freeze A (FFA-LoRA)'] = traj
 
     # === 2. RoLoRA ===
     server, clients = init_sim_state()
@@ -137,19 +151,6 @@ def run_simulation_logic():
         traj.append((server.A, server.B))
     trajectory_results['RoLoRA'] = traj
 
-    # === 3. FedLoRA2 (No Rotation) ===
-    server, clients = init_sim_state()
-    traj = [(server.A, server.B)]
-    for _ in range(NUM_ROUNDS):
-        client_As, client_Bs = [], []
-        server.broadcast_AB(clients)
-        for client in clients:
-            client.train_local(LOCAL_STEPS, LR, train_A=True, train_B=True)
-            client_As.append(client.A)
-            client_Bs.append(client.B)
-        server.aggregate_AB(client_As, client_Bs)
-        traj.append((server.A, server.B))
-    trajectory_results['FedLoRA2 (No Rot)'] = traj
 
     # === 4. FedLoRA2 (With Rotation) ===
     server, clients = init_sim_state()
@@ -169,7 +170,7 @@ def run_simulation_logic():
         server.aggregate_AB(client_As, client_Bs)
         A_ref, B_ref = server.A, server.B
         traj.append((server.A, server.B))
-    trajectory_results['FedLoRA2 (Rot)'] = traj
+    trajectory_results['FedRot-LoRA'] = traj
     #
     # === 5. FedLoRA2 (soft Rotation) ===
     server, clients = init_sim_state()
@@ -189,7 +190,7 @@ def run_simulation_logic():
         server.aggregate_AB(client_As, client_Bs)
         A_ref, B_ref = server.A, server.B
         traj.append((server.A, server.B))
-    trajectory_results['FedLoRA2 (soft,lambda=0.5)'] = traj
+    trajectory_results['FedRot-LoRA, $\\lambda=0.5$'] = traj
 
     return trajectory_results, SHARED_INITIAL_A, SHARED_INITIAL_B
 
@@ -240,7 +241,8 @@ def plot_trajectory_with_contours(trajectory_results, start_A, start_B):
     contour = ax.contourf(AA, BB, Z, levels=linear_levels, cmap='GnBu', alpha=0.6, extend='max')
 
     cbar = fig.colorbar(contour, ax=ax)
-    cbar.set_label('Global Loss (Linear Scale)', rotation=270, labelpad=20)
+    cbar.set_label('Global Loss', rotation=270, labelpad=20, fontsize=24)
+    cbar.ax.tick_params(labelsize=20)
 
     # 5. Plot Optimal Hyperbola (The "Valley" floor)
     A_line = np.linspace(min_A, max_A, 600)
@@ -269,19 +271,20 @@ def plot_trajectory_with_contours(trajectory_results, start_A, start_B):
     ax.scatter(start_A, start_B, c='black', marker='*', s=300, zorder=10, label='Start')
 
     # Formatting
-    ax.set_xlabel("Parameter A", fontsize=14)
-    ax.set_ylabel("Parameter B", fontsize=14)
-    ax.set_title(f"Optimization Trajectory (Linear Scale)\n(Target $A \\cdot B = {GLOBAL_OPTIMAL:.2f}$)", fontsize=16)
+    ax.set_xlabel("Parameter A", fontsize=30)
+    ax.set_ylabel("Parameter B", fontsize=30)
+    ax.set_title(f"Optimization Trajectory\n(Target $BA = {GLOBAL_OPTIMAL:.2f}$)", fontsize=30)
+    ax.tick_params(axis='both', which='major', labelsize=20)
     ax.set_xlim(min_A, max_A)
     ax.set_ylim(min_B, max_B)
     ax.axhline(0, color='k', linewidth=0.5, alpha=0.5)
     ax.axvline(0, color='k', linewidth=0.5, alpha=0.5)
-    ax.legend(fontsize=12, loc='best', framealpha=0.9)
+    ax.legend(fontsize=20, loc='best', framealpha=0.9)
     ax.grid(True, linestyle=':', alpha=0.6)
 
     plt.tight_layout()
-    plt.savefig("fedlora_trajectory_contour_linear.png", dpi=300)
-    print("Plot saved to fedlora_trajectory_contour_linear.png")
+    plt.savefig("fedlora_trajectory_contour_linear.pdf")
+    print("Plot saved to fedlora_trajectory_contour_linear.pdf")
     plt.show()
 
 if __name__ == "__main__":
