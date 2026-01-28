@@ -398,8 +398,6 @@ def scaling_alignment(
     layer_keys_A = list(updated_A.keys())
     layer_keys_B = [key.replace('.lora_A', '.lora_B') for key in layer_keys_A]
 
-    align = 'A' # enfore align A in case B is too small
-
     if align == 'A':
         ref_keys = layer_keys_A
     elif align == 'B':
