@@ -4,27 +4,27 @@ from gen_missing_jobs import check_config, check_algorithm, match_exp
 # --- Configuration ---
 algos = {
     "FedLoRA2": {
-        "yaml": "federatedscope/glue/yamls/base_fedlora2.yaml",
+        "yaml": "federatedscope/llm/yamls/base_fedlora2.yaml",
         # Added 0.0005 and 0.001 here so the logic applies to them
         "lrs": [0.005, 0.02],
-        "lambdas": [0.5, 0.3, 0.1],
+        "lambdas": [0.3, 0.1],
         "warmup_round": [100],
         # We removed 'warmup' list here because we will determine it by logic
     },
     "RoLoRA": {
-        "yaml": "federatedscope/glue/yamls/base_rolora.yaml",
+        "yaml": "federatedscope/llm/yamls/base_rolora.yaml",
         "lrs": [0.0005, 0.001],
         "lambdas": [0.0],
         'warmup': [False]  # Kept as fixed list for others
     },
     "FedIT": {
-        "yaml": "federatedscope/glue/yamls/base_worotation.yaml",
+        "yaml": "federatedscope/llm/yamls/base_worotation.yaml",
         "lrs": [0.005, 0.02],
         "lambdas": [0.0],
         'warmup': [False]
     },
     "FFA-LoRA": {
-        "yaml": "federatedscope/glue/yamls/base_FFAlora.yaml",
+        "yaml": "federatedscope/llm/yamls/base_FFAlora.yaml",
         "lrs": [0.005, 0.02],
         "lambdas": [0.0],
         'warmup': [False]
@@ -32,20 +32,18 @@ algos = {
 }
 
 seeds = [11, 12, 13]
-datasets = ['mnli@glue']
-total_train_steps = 5000
-local_steps = [20]
+datasets = ['code_search_net@llm']
+total_train_steps = 3000
+local_steps = [30]
 rotate_reg = "False"
 device_id = 0
 warmup_lr = 0.005 # Default warmup_lr
 ClientNum = 3
-r = 16
-lora_alpha = 32
 
 data_root = "$SCRATCH/data/"
 
 # check existing runs
-folder_head = "./exp/FedAvg_FacebookAI/roberta-large@huggingface_llm_on_"
+folder_head = "./exp/FedAvg_meta-llama/Meta-Llama-3-8B@huggingface_llm_on_"
 existing_exp = {}
 
 for data in datasets:
@@ -75,8 +73,6 @@ for data in datasets:
                             'warmup_round': config['lora']['warm_up_rounds'],
                             'local_update_steps': config['train']['local_update_steps'],
                             'lambda': config['lora']['rotate_lambda'],
-                            'r': config['llm']['adapter']['args'][0]['r'],
-                            'lora_alpha': config['llm']['adapter']['args'][0]['lora_alpha'],
                             }]
                     else:
                         existing_exp[algorithm_name].append(
@@ -89,8 +85,6 @@ for data in datasets:
                             'warmup_round': config['lora']['warm_up_rounds'],
                             'local_update_steps': config['train']['local_update_steps'],
                             'lambda': config['lora']['rotate_lambda'],
-                            'r': config['llm']['adapter']['args'][0]['r'],
-                            'lora_alpha': config['llm']['adapter']['args'][0]['lora_alpha'],
                             }
                         )
 
@@ -99,8 +93,6 @@ commands = []
 
 per_exp_config = {}
 per_exp_config['client_num']=ClientNum
-per_exp_config['r']=r
-per_exp_config['lora_alpha']=lora_alpha
 for data in datasets:
     per_exp_config['data']=data
     for algo_name, settings in algos.items():
@@ -155,13 +147,12 @@ for data in datasets:
                                 f"data.type {data} "
                                 f"data.root {data_root} "
                                 f"train.local_update_steps {ls} "
-                                f"train.optimizer.lr {lr} "
-                                f"llm.adapter.args \"[{{'adapter_package':'peft','adapter_method':'lora','r':{r},'lora_alpha':{lora_alpha},'lora_dropout':0.05}}]\""
+                                f"train.optimizer.lr {lr}"
                             )
                             commands.append(cmd)
 
 # Write to file
-output_file = "experiments_r16.txt"
+output_file = "experiments_llamacode.txt"
 with open(output_file, "w") as f:
     for cmd in commands:
         f.write(cmd + "\n")
