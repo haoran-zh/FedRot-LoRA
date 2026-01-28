@@ -38,4 +38,7 @@ python federatedscope/main.py --cfg federatedscope/llm/yamls/base_fedrot_lora.ya
 
 ## Acknowledgement
 
+This implementation is built on top of the FedSA-LoRA codebase:  
+https://github.com/Pengxin-Guo/FedSA-LoRA
+
 We would like to thank the authors for releasing the public repository: [FederatedScope-LLM](https://github.com/alibaba/FederatedScope/tree/llm).

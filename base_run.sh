@@ -15,7 +15,7 @@ trap cleanup SIGINT SIGTERM
 
 
 # check gpu availability
-MEM_THRESHOLD=20000 # Example: Wait if the GPU is using more than 20GB (20000 MiB)
+MEM_THRESHOLD=10000 # Example: Wait if the GPU is using more than 10GB (10000 MiB)
 CHECK_INTERVAL=30   # How often (in seconds) to check the GPU status
 # --- New Function to Check GPU Availability ---
 # Argument 1: GPU ID (e.g., 1)
@@ -48,91 +48,116 @@ check_gpu_availability() {
 
 
 # --- Configuration ---
-GPUS=(0 1 2)                # Your GPU IDs
+GPUS=(0 1)                # Your GPU IDs
 JOBS_PER_GPU=1             # How many to stack per GPU
 NUM_GPUS=${#GPUS[@]}
 # Total concurrent jobs = 3 GPUs * 2 jobs = 6
 BATCH_SIZE=$((NUM_GPUS * JOBS_PER_GPU))
 
 BASE_YAMLS=(
-    "federatedscope/glue/yamls/base_rolora.yaml"
-    "federatedscope/glue/yamls/base_fedlora2.yaml"
-    "federatedscope/glue/yamls/base_worotation.yaml"  # FedIT
-    "federatedscope/glue/yamls/base_FFAlora.yaml"
+  "federatedscope/glue/yamls/base_rescale.yaml"
+#    "federatedscope/glue/yamls/base_rolora.yaml"
+#    "federatedscope/glue/yamls/base_fedrot_lora.yaml"
+#    "federatedscope/glue/yamls/base_worotation.yaml"  # FedIT
+#    "federatedscope/glue/yamls/base_FFAlora.yaml"
 )
-#    "federatedscope/glue/yamls/base_fedlora2.yaml"
+#    "federatedscope/glue/yamls/base_fedrot_lora.yaml"
 #    "federatedscope/glue/yamls/base_worotation.yaml"
 SEEDS=(11 12 13)
-TOTAL_TRAIN=10000
+TOTAL_TRAIN=5000
 LOCAL_STEPS=(20)
-DATA='rte@glue'  # 'mnli@glue'
+DATAS=('mnli@glue' 'sst2@glue' 'qnli')  # 'mnli@glue'
 # 'lr0.005' 'lr0.02'
-LR_VALUES=(0.001 0.005 0.02)
-ROTATE_LAMBDA=(1.0 0.5)
+#LR_VALUES=(0.0005 0.001 0.005 0.02)
+ROTATE_LAMBDA=(1.0)
 ROTATE_REG=False
+CLIENTNUM=3
+
 # LR_VALUES=(5e-4 1e-3 2e-3 5e-3 1e-2 2e-2 5e-2 1e-1)
 # rte 'lr0.0005' 'lr0.001' 'lr' 'lr0.02'
-
+#     "cola": ("sentence", None),
+  #    "mnli": ("premise", "hypothesis"),
+  #    "mrpc": ("sentence1", "sentence2"),
+  #    "qnli": ("question", "sentence"),
+  #    "qqp": ("question1", "question2"),
+  #    "rte": ("sentence1", "sentence2"),
+  #    "sst2": ("sentence", None),
+  #    "stsb": ("sentence1", "sentence2"),
+  #    "wnli": ("sentence1", "sentence2"),
 counter=0
 
-for BASE_YAML in "${BASE_YAMLS[@]}"
+for DATA in "${DATAS[@]}"
 do
-    echo "--- Base Config: $BASE_YAML ---"
-    for LS in "${LOCAL_STEPS[@]}"
-    do
-        ROUNDS=$((TOTAL_TRAIN / LS))
-        for LR in "${LR_VALUES[@]}"
-        do
-            for LAMBDA in "${ROTATE_LAMBDA[@]}"
-            do
-              for SEED in "${SEEDS[@]}"
+  for BASE_YAML in "${BASE_YAMLS[@]}"
+  do
+      echo "--- Base Config: $BASE_YAML ---"
+
+      # --- LOGIC CHANGE HERE ---
+      # Check if the current yaml string contains "fedlora2"
+      if [[ "$BASE_YAML" == *"base_fedlora2"* ]]; then
+          # If yes, we search through the list
+          CURRENT_LAMBDAS=("${ROTATE_LAMBDA[@]}")
+          LR_VALUES=(0.005 0.02) # skip small lrs for FedLoRA2
+          echo ">>> FedLoRA2 detected: Sweeping lambdas: ${CURRENT_LAMBDAS[*]}, lr set to: ${LR_VALUES[*]}"
+      else
+          # If no, we run only once (using 0 or 1.0 as a placeholder)
+          CURRENT_LAMBDAS=(0.0)
+          LR_VALUES=(0.005 0.02) # 0.0005 0.001
+          echo ">>> Not FedLoRA2: Running single lambda (0.0) all lr"
+      fi
+
+      for LS in "${LOCAL_STEPS[@]}"
+      do
+          ROUNDS=$((TOTAL_TRAIN / LS))
+          for LR in "${LR_VALUES[@]}"
+          do
+
+              # Loop over the dynamic CURRENT_LAMBDAS list
+              for LAMBDA in "${CURRENT_LAMBDAS[@]}"
               do
-                  # --- LOGIC TO MAP JOB TO GPU ---
-                  # 1. Find where we are in the current batch (0 to 5)
-                  batch_position=$((counter % BATCH_SIZE))
+                for SEED in "${SEEDS[@]}"
+                do
+                    # --- MAP JOB TO GPU ---
+                    batch_position=$((counter % BATCH_SIZE))
+                    gpu_idx=$((batch_position / JOBS_PER_GPU))
+                    CURRENT_GPU=${GPUS[$gpu_idx]}
 
-                  # 2. Integer division to assign GPU.
-                  # Positions 0,1 -> GPU index 0. Positions 2,3 -> GPU index 1, etc.
-                  gpu_idx=$((batch_position / JOBS_PER_GPU))
-                  CURRENT_GPU=${GPUS[$gpu_idx]}
+                    echo "Running (Job #$counter): GPU=$CURRENT_GPU | YAML=$(basename $BASE_YAML) | LR=$LR | Lambda=$LAMBDA | Seed=$SEED"
 
-                  echo "Running (Job #$counter): GPU=$CURRENT_GPU | LR=$LR | LS=$LS | Seed=$SEED | Rounds=$ROUNDS"
+                    # check_gpu_availability $CURRENT_GPU  # Ensure this function is defined in your environment
 
-                  check_gpu_availability $CURRENT_GPU
+                    LOG_BUFFER="./log_buffer_${counter}.log"
 
-                  LOG_BUFFER="./log_buffer.log"
+                    # Execute in background
+                    python federatedscope/main.py \
+                        --cfg $BASE_YAML \
+                        device $CURRENT_GPU \
+                        seed $SEED \
+                        lora.rotate_lambda $LAMBDA \
+                        lora.rotate_reg $ROTATE_REG \
+                        federate.total_round_num $ROUNDS \
+                        federate.client_num $CLIENTNUM \
+                        federate.sample_client_num $CLIENTNUM \
+                        data.type $DATA \
+                        train.local_update_steps $LS \
+                        train.optimizer.lr $LR > "$LOG_BUFFER" 2>&1 &
 
-                  # Execute in background
-                  python federatedscope/main.py \
-                      --cfg $BASE_YAML \
-                      device $CURRENT_GPU \
-                      seed $SEED \
-                      lora.rotate_lambda $LAMBDA\
-                      lora.rotate_reg $ROTATE_REG \
-                      lora.normalize True \
-                      federate.total_round_num $ROUNDS \
-                      data.type $DATA \
-                      train.local_update_steps $LS \
-                      train.optimizer.lr $LR #> "$LOG_BUFFER" 2>&1 &
+                    # --- SAFETY STAGGER ---
+                    sleep 60
 
-                  # --- SAFETY STAGGER ---
-                  # Sleep 60 seconds before starting the next one to prevent
-                  # simultaneous initialization memory spikes.
-                  sleep 60
+                    ((counter++))
 
-                  ((counter++))
-
-                  # --- BATCH WAIT ---
-                  # If we have filled all slots (counter is a multiple of 6), wait.
-                  if (( counter % BATCH_SIZE == 0 )); then
-                      echo ">>> Batch full ($BATCH_SIZE jobs running). Waiting for completion..."
-                      wait
-                      echo ">>> Batch finished. Starting next batch."
-                  fi
+                    # --- BATCH WAIT ---
+                    if (( counter % BATCH_SIZE == 0 )); then
+                        echo ">>> Batch full ($BATCH_SIZE jobs running). Waiting for completion..."
+                        wait
+                        echo ">>> Batch finished. Starting next batch."
+                    fi
+                done
               done
-            done
-        done
-    done
+          done
+      done
+  done
 done
 
 wait

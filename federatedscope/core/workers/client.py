@@ -12,7 +12,7 @@ from federatedscope.core.secret_sharing import AdditiveSecretSharing
 from federatedscope.core.auxiliaries.utils import merge_dict_of_results, \
     calculate_time_cost, add_prefix_to_path, get_ds_rank
 from federatedscope.core.workers.base_client import BaseClient
-from federatedscope.rotation_alignment_tools import rotation_align_optimization, rotation_alignment, rotation_alignment_soft, rotation_alignment_regularized, rotation_alignment_soft_normalized
+from federatedscope.rotation_alignment_tools import rotation_alignment, rotation_alignment_soft, random_rotation_function, scaling_alignment
 
 logger = logging.getLogger(__name__)
 if get_ds_rank() == 0:
@@ -378,31 +378,36 @@ class Client(BaseClient):
                     model_para_B_only = self.trainer._param_filter(model_para_all, filter_keywords=['lora_A', 'classifier'])
                     model_para_A_only = self.trainer._param_filter(model_para_all, filter_keywords=['lora_B', 'classifier'])
 
-                    if self._cfg.lora.rotate is True and self.state > 0:  # the first round cannot rotate
+                    if ((self._cfg.lora.rotate is True) or (self._cfg.lora.rescale is True)) and self.state > 0:  # the first round cannot rotate
                         align_matrix = 'A' if self.state % 2 != self.swap_offset else 'B'
-                        if self._cfg.lora.rotate_lambda > 1.0:
-                            model_para_A_only, model_para_B_only = rotation_alignment(initial_model_ref=content, align=align_matrix,
-                                                             updated_A=model_para_A_only, updated_B=model_para_B_only)
-                        else:
-                            if self._cfg.lora.rotate_reg is True:
-                                model_para_A_only, model_para_B_only = rotation_alignment_regularized(initial_model_ref=content,
-                                                                                      align=align_matrix,
-                                                                                      updated_A=model_para_A_only,
-                                                                                      updated_B=model_para_B_only,
-                                                                                           rotation_lambda=self._cfg.lora.rotate_lambda)
+
+                        # ablation study
+                        if self._cfg.lora.ablation == 'A':
+                            align_matrix = 'A'
+                        elif self._cfg.lora.ablation == 'B':
+                            align_matrix = 'B'
+
+                        if self._cfg.lora.rescale is True:
+                            model_para_A_only, model_para_B_only = scaling_alignment(initial_model_ref=content,
+                                                                                           align=align_matrix,
+                                                                                           updated_A=model_para_A_only,
+                                                                                           updated_B=model_para_B_only)
+
+                        elif self._cfg.lora.random_rotate is False:
+                            if self._cfg.lora.rotate_lambda > 1.0:
+                                model_para_A_only, model_para_B_only = rotation_alignment(initial_model_ref=content, align=align_matrix,
+                                                                 updated_A=model_para_A_only, updated_B=model_para_B_only)
                             else:
-                                if self._cfg.lora.normalize is True:
-                                    model_para_A_only, model_para_B_only = rotation_alignment_soft_normalized(initial_model_ref=content,
-                                                                                      align=align_matrix,
-                                                                                      updated_A=model_para_A_only,
-                                                                                      updated_B=model_para_B_only,
-                                                                                           rotation_lambda=self._cfg.lora.rotate_lambda)
-                                else:
+
                                     model_para_A_only, model_para_B_only = rotation_alignment_soft(initial_model_ref=content,
-                                                                                      align=align_matrix,
-                                                                                      updated_A=model_para_A_only,
-                                                                                      updated_B=model_para_B_only,
-                                                                                           rotation_lambda=self._cfg.lora.rotate_lambda)
+                                                                                          align=align_matrix,
+                                                                                          updated_A=model_para_A_only,
+                                                                                          updated_B=model_para_B_only,
+                                                                                               rotation_lambda=self._cfg.lora.rotate_lambda)
+                        else: # random rotation
+                            model_para_A_only, model_para_B_only = random_rotation_function(
+                                updated_A=model_para_A_only,
+                                updated_B=model_para_B_only)
 
                         self.trainer.cfg.personalization.local_param.append('lora_A')
                         self.trainer.update(model_para_B_only,

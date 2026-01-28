@@ -91,9 +91,12 @@ def extend_llm_cfg(cfg):
     cfg.lora.rotate_reg = False
     cfg.lora.normalize = False
     cfg.lora.warm_up = False
-    cfg.lora.warm_up_rounds = 10
+    cfg.lora.warm_up_rounds = 100
     cfg.lora.warm_up_lr = 1e-2
     cfg.lora.temp = 0.0
+    cfg.lora.ablation = ''
+    cfg.lora.random_rotate = False
+    cfg.lora.rescale = False
 
     cfg.FedSteer = CN()
     cfg.FedSteer.use = False
