@@ -334,3 +334,90 @@ def rotation_alignment_soft(initial_model_ref: dict,
     return rotatedA, rotatedB
 
 
+def _closed_form_scaling(Q: torch.Tensor, Q_ref: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
+    """c* = <Q, Q_ref> / ||Q||_F^2, computed in fp32 accumulation without fp32 copies."""
+    if Q.shape != Q_ref.shape:
+        raise ValueError(f"Shape mismatch: {Q.shape} vs {Q_ref.shape}")
+
+    denom = torch.sum(Q * Q, dtype=torch.float32)
+    denom = torch.clamp(denom, min=eps)
+    numer = torch.sum(Q * Q_ref, dtype=torch.float32)
+    return numer / denom  # float32 scalar on device
+
+
+def scaling_align_optimization_inplace(
+    initial_model_ref: torch.Tensor,
+    align_matrix: str,
+    updated_A: torch.Tensor,
+    updated_B: torch.Tensor,
+    eps: float = 1e-12,
+) -> (torch.Tensor, torch.Tensor):
+    """
+    Hard scalar rescaling, alternating on A/B, preserving ΔW = B@A exactly.
+    In-place update to avoid extra allocations.
+    """
+
+    if align_matrix not in ("A", "B"):
+        raise ValueError("align_matrix must be 'A' or 'B'")
+
+    with torch.no_grad():
+        if align_matrix == "A":
+            c = _closed_form_scaling(updated_A, initial_model_ref, eps=eps)
+        else:
+            c = _closed_form_scaling(updated_B, initial_model_ref, eps=eps)
+
+        # safe inverse; keep sign to match unconstrained optimum
+        abs_c = torch.clamp(torch.abs(c), min=eps)
+        c_safe = torch.sign(c) * abs_c  # float32 scalar tensor
+
+        # apply gauge-consistent scaling (in-place)
+        if align_matrix == "A":
+            updated_A.mul_(c_safe.to(dtype=updated_A.dtype))
+            updated_B.div_(c_safe.to(dtype=updated_B.dtype))
+        else:
+            updated_B.mul_(c_safe.to(dtype=updated_B.dtype))
+            updated_A.div_(c_safe.to(dtype=updated_A.dtype))
+
+    return updated_A, updated_B
+
+
+def scaling_alignment(
+    initial_model_ref: dict,
+    align: str,
+    updated_A: dict,
+    updated_B: dict,
+    eps: float = 1e-12,
+) -> (dict, dict):
+    """
+    Wrapper matching your rotation_alignment_soft structure.
+    This version updates tensors in-place and returns the same dicts (or OrderedDict views).
+    """
+    scaledA = OrderedDict()
+    scaledB = OrderedDict()
+
+    layer_keys_A = list(updated_A.keys())
+    layer_keys_B = [key.replace('.lora_A', '.lora_B') for key in layer_keys_A]
+
+    align = 'A' # enfore align A in case B is too small
+
+    if align == 'A':
+        ref_keys = layer_keys_A
+    elif align == 'B':
+        ref_keys = layer_keys_B
+    else:
+        raise ValueError("align must be 'A' or 'B'")
+
+    for key_a, key_b, key_ref in zip(layer_keys_A, layer_keys_B, ref_keys):
+        if key_a not in updated_A or key_b not in updated_B or key_ref not in initial_model_ref:
+            print(f"Warning: Skipping layer due to missing keys. Looked for {key_a}, {key_b}, {key_ref}")
+            continue
+
+        A = updated_A[key_a]
+        B = updated_B[key_b]
+        ref = initial_model_ref[key_ref]
+
+        A2, B2 = scaling_align_optimization_inplace(ref, align, A, B, eps=eps)
+        scaledA[key_a] = A2
+        scaledB[key_b] = B2
+
+    return scaledA, scaledB

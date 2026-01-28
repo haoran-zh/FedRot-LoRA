@@ -5,22 +5,21 @@ eval_device: 0
 early_stop:
   patience: 0
 federate:
-  freeze_A: False
   mode: standalone
-  client_num: 3
-  total_round_num: 100
-  save_to: "llama_gsm8k_3_rolora.ckpt"
+  client_num: 6
+  total_round_num: 200
+  save_to: "final_llama_csn_rolora.ckpt"
+  save_freq: 40
   share_local_model: True
   online_aggr: False
-  make_global_eval: True
-personalization:
-  local_param: []
 data:
   root: data/
-  type: 'gsm8k@llm'
-  splitter: 'iid'
+  type: 'code_search_net@llm'
+  splits: [0.998,0.001,0.001]
+  splitter: 'meta'
+  subsample: 0.05
 llm:
-  tok_len: 1000
+  tok_len: 650
   chat:
     max_len: 1000
   adapter:
@@ -41,9 +40,9 @@ criterion:
 trainer:
   type: llmtrainer
 eval:
-  freq: 100
-  metrics: ['acc']
-  best_res_update_round_wise_key: val_acc
+  freq: 200
+  metrics: ['loss']
+  best_res_update_round_wise_key: val_loss
   count_flops: False
 lora:
   rolora: True

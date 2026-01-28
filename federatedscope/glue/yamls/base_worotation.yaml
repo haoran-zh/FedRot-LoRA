@@ -6,7 +6,7 @@ early_stop:
 federate:
   freeze_A: False
   mode: standalone
-  client_num: 3
+#  client_num: 3
 #  total_round_num: 250
   save_to: "global_localstep20_fedlora2_shareAB_wo_rotation_mnli-m.ckpt"
   share_local_model: True

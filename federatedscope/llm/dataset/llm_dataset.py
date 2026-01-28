@@ -56,6 +56,7 @@ class LLMDataset(Dataset):
         tokenizer: A transformers.PreTrainedTokenizer object that can
             encode and decode text.
     """
+
     def __init__(self,
                  list_data_dict,
                  tokenizer,
@@ -103,7 +104,7 @@ class LLMDataset(Dataset):
         ]
         df = pd.DataFrame(categories, columns=["category"])
         self.categories = list(pd.Categorical(df["category"]).codes)
-        
+
         # added by me, save original text data for gsm8k
         self.list_data_dict = list_data_dict  # for gsm8k
 
@@ -186,11 +187,11 @@ class LLMDataset(Dataset):
         # return dict(input_ids=self.input_ids[i],
         #             labels=self.labels[i],
         #             categories=self.categories[i])
-        
+
         return dict(input_ids=self.input_ids[i],
                     labels=self.labels[i],
                     categories=self.categories[i],
-                    instruction=self.list_data_dict[i]["instruction"], # added by me, for gsm8k
-                    input=self.list_data_dict[i]["input"], # added by me, for gsm8k
-                    output=self.list_data_dict[i]["output"], # added by me, for gsm8k
+                    instruction=self.list_data_dict[i]["instruction"],  # added by me, for gsm8k
+                    input=self.list_data_dict[i]["input"],  # added by me, for gsm8k
+                    output=self.list_data_dict[i]["output"],  # added by me, for gsm8k
                     )

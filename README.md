@@ -2,9 +2,6 @@
 
 ## Implementation of FedRot-LoRA
 
-This implementation is built on top of the FedSA-LoRA codebase:  
-https://github.com/Pengxin-Guo/FedSA-LoRA
-
 The core FedRot-LoRA logic is implemented in the following files:
 - `federatedscope/core/workers/client.py`
 - `federatedscope/core/workers/server.py`
@@ -27,7 +24,7 @@ pip install evaluate
 Now, we can fine-tune a LLM with FedRot-LoRA:
 
 ```shell
-python federatedscope/main.py --cfg federatedscope/glue/yamls/fedlora2.yaml
+python federatedscope/main.py --cfg federatedscope/glue/yamls/base_fedrot_lora.yaml
 ```
 
 To use Llama-3-8B, login huggingface first:
@@ -36,7 +33,7 @@ huggingface-cli login
 ```
 Then:
 ```shell
-python federatedscope/main.py --cfg federatedscope/llm/yamls/fedlora2.yaml
+python federatedscope/main.py --cfg federatedscope/llm/yamls/base_fedrot_lora.yaml
 ```
 
 ## Acknowledgement

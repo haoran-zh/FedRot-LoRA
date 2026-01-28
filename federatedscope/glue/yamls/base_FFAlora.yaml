@@ -6,7 +6,7 @@ early_stop:
 federate:
   freeze_A: True
   mode: standalone
-  client_num: 3
+#  client_num: 3
 #  total_round_num: 250
   save_to: "global_ffalora_mnli-m.ckpt"
   share_local_model: True

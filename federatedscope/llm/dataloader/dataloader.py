@@ -59,18 +59,18 @@ class LLMDataCollator(object):
         #     labels=labels,
         #     attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
         # )
-        
+
         # added by me, for evaluating gsm8k dataset
         instruction = [instance['instruction'] for instance in instances]
         input = [instance['input'] for instance in instances]
         output = [instance['output'] for instance in instances]
-        
+
         return dict(
             input_ids=input_ids,
             labels=labels,
             attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
-            instruction=instruction, # added by me, for evaluating gs8k dataset
-            input=input, # added by me, for evaluating gs8k dataset
+            instruction=instruction,  # added by me, for evaluating gs8k dataset
+            input=input,  # added by me, for evaluating gs8k dataset
             output=output,  # added by me, for evaluating gs8k dataset
         )
 
@@ -293,7 +293,7 @@ def load_llm_dataset(config=None, **kwargs):
                 list_data_dict[i]['output'].replace('####', 'The answer is')
         # dataset = LLMDataset(list_data_dict, tokenizer)
         train_dataset = LLMDataset(list_data_dict, tokenizer)
-        
+
         # added by me, add test dataset
         fp_test = os.path.join(config.data.root, 'gsm8k_test.jsonl')
         if not os.path.exists(fp_test):
@@ -301,9 +301,9 @@ def load_llm_dataset(config=None, **kwargs):
                 'https://raw.githubusercontent.com/openai/'
                 'grade-school-math/2909d34ef28520753df82a2234c357259d254aa8/'
                 'grade_school_math/data/test.jsonl', config.data.root)
-            os.rename(os.path.join(config.data.root, 'test.jsonl'), fp_test)
-        list_data_dict_test = load_jsonl(fp_test, 
-                                         instruction='question', 
+            os.rename(os.path.join(config.data.root, 'test.jsonl'), fp)
+        list_data_dict_test = load_jsonl(fp_test,
+                                         instruction='question',
                                          output='answer')
         # for i in range(len(list_data_dict_test)):
         #     list_data_dict_test[i]['output'] = \
@@ -311,7 +311,7 @@ def load_llm_dataset(config=None, **kwargs):
         test_dataset = LLMDataset(list_data_dict_test, tokenizer)
 
         dataset = (train_dataset, test_dataset, [])
-        
+
     elif dataset_name.lower() == 'code_search_net':
         from tqdm import tqdm
         from federatedscope.llm.dataset.code_search_net import \
