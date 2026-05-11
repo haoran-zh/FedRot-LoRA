@@ -16,7 +16,7 @@ $(B_i R_i)\left(R_i^T A_i\right) = B_i A_i$
 Although the product is unchanged, the individual factors may reside in different client-specific coordinate systems. FedRot-LoRA solves an orthogonal alignment problem for each client before averaging the factors.
 
 <p align="center">
-  <img src="./assets/overview-rot.png" alt="FedRot-LoRA overview" width="720">
+  <img src="./assets/overview-rot.png" alt="FedRot-LoRA overview" width="500">
 </p>
 
 ## Highlights
