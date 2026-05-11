@@ -98,9 +98,8 @@ If you find this repository useful, please cite:
 @inproceedings{zhang2026fedrotlora,
   title = {FedRot-LoRA: Mitigating Rotational Misalignment in Federated LoRA},
   author = {Zhang, Haoran and Kim, Dongjun and Cha, Seohyeon and Vikalo, Haris},
-  booktitle = {Proceedings of the 43rd International Conference on Machine Learning},
-  year = {2026},
-  url = {https://arxiv.org/abs/2602.23638}
+  booktitle = {Forty-third International Conference on Machine Learning},
+  year = {2026}
 }
 ```
 
