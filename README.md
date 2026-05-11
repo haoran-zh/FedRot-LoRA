@@ -21,11 +21,11 @@ Although the product is unchanged, the individual factors may reside in differen
 
 ## Highlights
 
-- **Problem:** Factor-wise averaging preserves the LoRA rank but can deviate from the mathematically correct aggregation of client updates.
-- **Key insight:** Rotational invariance creates cross-client latent subspace mismatch, causing aligned updates to interfere after naive averaging.
-- **Method:** FedRot-LoRA applies orthogonal transformations to align local LoRA factors prior to server aggregation.
-- **Benefits:** The alignment preserves the semantic update, does not increase communication cost, and improves stability across heterogeneity levels and LoRA ranks.
-- **Evaluation:** Experiments cover natural language understanding and generative tasks, with comparisons against federated LoRA baselines.
+- **Problem:** Factor-wise averaging preserves LoRA rank but can deviate from correct client-update aggregation.
+- **Key insight:** Rotational invariance induces cross-client latent subspace mismatch, causing destructive interference under naive averaging.
+- **Method:** FedRot-LoRA aligns local LoRA factors with orthogonal transformations before server aggregation.
+- **Benefits:** Alignment preserves the semantic update, adds no communication cost, and improves stability across heterogeneity levels and LoRA ranks.
+- **Evaluation:** Experiments span natural language understanding and generative tasks against federated LoRA baselines.
 
 ## Implementation
 
